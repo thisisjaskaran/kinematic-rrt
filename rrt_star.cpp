@@ -272,7 +272,7 @@ public:
                     xc = x1 - rho * sin(theta);
                     yc = y1 + rho * cos(theta);
 
-                    neighbours[i]->orientation = asin((x1 - x2)/rho - sin(theta));
+                    nodes[i]->orientation = asin(-(x1 - x2)/rho + sin(theta));
                 }
 
                 else
@@ -280,8 +280,24 @@ public:
                     xc = x1 + rho * sin(theta);
                     yc = y1 - rho * cos(theta);
                     
-                    neighbours[i]->orientation = asin((x1 - x2)/rho + sin(theta));
+                    nodes[i]->orientation = asin((x1 - x2)/rho + sin(theta));
                 }
+
+                if(abs_den < 0.1)
+                {
+                    if(atan2((y2 - y1),(x2 - x1)) > 0)
+                        nodes[i]->orientation = 2 * atan2((y2 - y1),(x2 - x1)) - theta;
+                    else
+                        nodes[i]->orientation = 2 * atan2((y2 - y1),(x2 - x1)) + 4 * acos(0.0) - theta;
+                }
+                if(abs_den < 0.01)
+                {
+                    nodes[i]->orientation = theta;
+                }
+                if(nodes[i]->orientation < 0)
+                    nodes[i]->orientation += 4 * acos(0.0);
+                    
+                // std::cout << "Orientation " << i << " : " << nodes[i]->orientation << std::endl;
             }
 
         }
@@ -364,7 +380,7 @@ public:
                 xc = x1 - rho * sin(theta);
                 yc = y1 + rho * cos(theta);
 
-                nodes[i]->orientation = asin((x1 - x2)/rho - sin(theta));
+                nodes[i]->orientation = asin(-(x1 - x2)/rho + sin(theta));
             }
 
             else
@@ -374,8 +390,24 @@ public:
                 
                 nodes[i]->orientation = asin((x1 - x2)/rho + sin(theta));
             }
-        }
 
+            if(abs_den < 0.1)
+            {
+                if(atan2((y2 - y1),(x2 - x1)) > 0)
+                    nodes[i]->orientation = 2 * atan2((y2 - y1),(x2 - x1)) - theta;
+                else
+                    nodes[i]->orientation = 2 * atan2((y2 - y1),(x2 - x1)) + 4 * acos(0.0) - theta;
+            }
+            if(abs_den < 0.01)
+            {
+                nodes[i]->orientation = theta;
+            }
+            if(nodes[i]->orientation < 0)
+                nodes[i]->orientation += 4 * acos(0.0);
+
+            // std::cout << "Orientation " << i << " : " << nodes[i]->orientation << std::endl;
+        }
+        // std::cout << std::endl;
     }
 
     void set_random_obstacles(int random_obstacles[][4])
@@ -417,7 +449,7 @@ int main()
     start->cost = 0.0;
     struct Node* goal = new Node(320,320);
 
-    double step_size = 30.0, search_radius = 40.0, rho_min = 100, initial_orientation = 3 * 3.1415 / 2;
+    double step_size = 30.0, search_radius = 40.0, rho_min = 150, initial_orientation = 3 * 3.1415 / 2;
     int ITERATIONS = 200000;
 
     Map map(height,width,start,goal,step_size,search_radius,randomize_obstacles,num_random_obstacles, rand_obst_max_height);
@@ -450,6 +482,7 @@ int main()
 
         steered_node->parent = nearest_node;
         steered_node->cost = nearest_node->cost + map.euclidean_distance(nearest_node,steered_node);
+        map.set_node_costs(initial_orientation);
         
         steered_node_global = steered_node;
         
@@ -465,7 +498,6 @@ int main()
         map.display_map();
 
         cv::waitKey(2);
-        map.set_node_costs(initial_orientation);
     }
 
     map.goal->parent = steered_node_global;
@@ -515,6 +547,7 @@ int main()
 
         steered_node->parent = nearest_node;
         steered_node->cost = nearest_node->cost + map.euclidean_distance(nearest_node,steered_node);
+        map.set_node_costs(initial_orientation);
         steered_node_global = steered_node;
         
         map.nodes.push_back(steered_node);
@@ -532,7 +565,6 @@ int main()
         cv::waitKey(2);
 
         map.goal->cost = map.set_goal_cost();
-        map.set_node_costs(initial_orientation);
     }
     cv::waitKey(0);
     cv::destroyAllWindows();
