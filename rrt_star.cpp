@@ -227,7 +227,7 @@ public:
             add_obstacle(100,100,200,200);
         }
     }
-    void rewire(struct Node* node, std::vector<struct Node*> neighbours, double rho_min, int random_obstacles[][4])
+    void rewire(struct Node* node, std::vector<struct Node*> neighbours, double rho_min, int random_obstacles[][4], double initial_orientation)
     {
         world = cv::Mat(height, width, CV_8UC3, cv::Scalar(255,255,255));
         set_obstacles(random_obstacles);
@@ -245,6 +245,7 @@ public:
                 neighbours[i]->parent = node;
                 neighbours[i]->cost = node->cost + euclidean_distance(node,neighbours[i]);
             }
+            set_node_costs(initial_orientation);
         }
 
         world = cv::Mat(height, width, CV_8UC3, cv::Scalar(255,255,255));
@@ -418,7 +419,7 @@ int main()
 
         std::vector<struct Node*> neighbours = map.find_neighbours(steered_node);
 
-        map.rewire(steered_node,neighbours,rho_min, random_obstacles);
+        map.rewire(steered_node,neighbours,rho_min, random_obstacles, initial_orientation);
 
         cv::circle(map.world, cv::Point(start->x,start->y), 5, cv::Scalar(0,255,0), cv::FILLED, cv::LINE_8);
         cv::circle(map.world, cv::Point(goal->x,goal->y), 5, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
@@ -481,7 +482,7 @@ int main()
 
         std::vector<struct Node*> neighbours = map.find_neighbours(steered_node);
 
-        map.rewire(steered_node,neighbours,rho_min, random_obstacles);
+        map.rewire(steered_node,neighbours,rho_min, random_obstacles, initial_orientation);
 
         cv::circle(map.world, cv::Point(start->x,start->y), 5, cv::Scalar(0,255,0), cv::FILLED, cv::LINE_8);
         cv::circle(map.world, cv::Point(goal->x,goal->y), 5, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
