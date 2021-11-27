@@ -183,11 +183,19 @@ public:
             cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
             cv::line(world, point_1, point_2, cv::Scalar(0,0,255), 2, cv::LINE_8); 
 
+            point_1 = cv::Point(curr_node->x,curr_node->y);
+            point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y + 10 * sin(curr_node->orientation));
+            cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
+
             curr_node = curr_node->parent;
         }
         cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
         cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
         cv::line(world, point_1, point_2, cv::Scalar(0,0,255), 2, cv::LINE_8); 
+
+        point_1 = cv::Point(curr_node->x,curr_node->y);
+        point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y + 10 * sin(curr_node->orientation));
+        cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
 
         cv::imshow("Output Window",world);
     }
@@ -244,8 +252,38 @@ public:
             {
                 neighbours[i]->parent = node;
                 neighbours[i]->cost = node->cost + euclidean_distance(node,neighbours[i]);
+            
+                int x1 = node->x;
+                int y1 = node->y;
+                int x2 = neighbours[i]->x;
+                int y2 = neighbours[i]->y;
+                double theta = node->orientation;
+
+                double num = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+                double den = (2 * (x2 - x1) * sin(theta) - 2 * (y2 - y1) * cos(theta));
+
+                double abs_den = abs(den);
+
+                double rho = 0.0, xc = 0.0, yc = 0.0;
+                rho = num/abs_den;
+
+                if(den < 0)
+                {
+                    xc = x1 - rho * sin(theta);
+                    yc = y1 + rho * cos(theta);
+
+                    neighbours[i]->orientation = asin((x1 - x2)/rho - sin(theta));
+                }
+
+                else
+                {
+                    xc = x1 + rho * sin(theta);
+                    yc = y1 - rho * cos(theta);
+                    
+                    neighbours[i]->orientation = asin((x1 - x2)/rho + sin(theta));
+                }
             }
-            set_node_costs(initial_orientation);
+
         }
 
         world = cv::Mat(height, width, CV_8UC3, cv::Scalar(255,255,255));
@@ -432,6 +470,7 @@ int main()
 
     map.goal->parent = steered_node_global;
     map.goal->cost = map.set_goal_cost();
+    map.set_node_costs(initial_orientation);
     map.nodes.push_back(map.goal);
 
     cv::Point point_1 = cv::Point(steered_node_global->x,steered_node_global->y);
