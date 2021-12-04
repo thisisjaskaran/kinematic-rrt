@@ -84,8 +84,9 @@ public:
         double rho = 0.0, xc = 0.0, yc = 0.0;
         rho = num/abs_den;
 
-        // std::cout << asin(euclidean_distance(node_1,node_2)/(2 * rho)) << std::endl;
         return (2 * rho * asin(euclidean_distance(node_1,node_2)/(2 * rho)));
+
+        // consider full turn case
     }
     struct Node* sample()
     {
@@ -270,10 +271,10 @@ public:
             if(neighbours[i] == node->parent)
                 continue;
             
-            if(node->cost + euclidean_distance(node,neighbours[i]) < neighbours[i]->cost)
+            if(node->cost + arc_distance(node,neighbours[i]) < neighbours[i]->cost)
             {
                 neighbours[i]->parent = node;
-                neighbours[i]->cost = node->cost + euclidean_distance(node,neighbours[i]);
+                neighbours[i]->cost = node->cost + arc_distance(node,neighbours[i]);
             
                 int x1 = node->x;
                 int y1 = node->y;
@@ -327,13 +328,13 @@ public:
         world = cv::Mat(height, width, CV_8UC3, cv::Scalar(255,255,255));
         set_obstacles(random_obstacles);
     }
-    bool check_kino(struct Node* node_1, struct Node* node_2, double rho_min)
+    bool check_kino(struct Node* curr_node, struct Node* nearest_node, double rho_min)
     {
-        int x1 = node_1->x;
-        int y1 = node_1->y;
-        int x2 = node_2->x;
-        int y2 = node_2->y;
-        double theta = node_1->orientation;
+        int x1 = curr_node->x;
+        int y1 = curr_node->y;
+        int x2 = nearest_node->x;
+        int y2 = nearest_node->y;
+        double theta = curr_node->orientation;
 
         double num = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
         double den = (2 * (x2 - x1) * sin(theta) - 2 * (y2 - y1) * cos(theta));
@@ -358,7 +359,7 @@ public:
             yc = y1 - rho * cos(theta);
         }
 
-        // if((abs(node_1->orientation - 1.57) < 0.5) && (node_2->y < node_1->y) && (abs(node_1->x - node_2->x) < 0.1))
+        // if((abs(curr_node->orientation - 1.57) < 0.5) && (nearest_node->y < curr_node->y) && (abs(curr_node->x - nearest_node->x) < 0.1))
         //     return false;
 
         if(rho > rho_min)
@@ -372,7 +373,7 @@ public:
         double cost = 0.0;
         while(curr_node->parent != NULL)
         {
-            cost += euclidean_distance(curr_node,curr_node->parent);
+            cost += arc_distance(curr_node,curr_node->parent);
             curr_node = curr_node->parent;
         }
         return cost;
@@ -384,7 +385,7 @@ public:
 
         for(int i = 1; i < nodes.size(); i++)
         {
-            nodes[i]->cost = nodes[i]->parent->cost + euclidean_distance(nodes[i],nodes[i]->parent);
+            nodes[i]->cost = nodes[i]->parent->cost + arc_distance(nodes[i],nodes[i]->parent);
 
             int x1 = nodes[i]->parent->x;
             int y1 = nodes[i]->parent->y;
@@ -429,18 +430,7 @@ public:
             }
             if(nodes[i]->orientation < 0)
                 nodes[i]->orientation += 4 * acos(0.0);
-            
-            // if((abs(nodes[i]->parent->orientation - 3*acos(0.0)) < 0.2) && (abs(nodes[i]->orientation - 1.57) < 0.2) && (nodes[i]->y < nodes[i]->parent->y))
-            // {
-
-            // }
-
-            // if((abs(nodes[i]->parent->orientation - 3*acos(0.0)) < 0.5) && (nodes[i]->y < nodes[i]->parent->y))
-            //     nodes[i]->orientation = nodes[i]->parent->orientation;
-
-            // std::cout << "Orientation " << i << " : " << nodes[i]->orientation << std::endl;
         }
-        // std::cout << std::endl;
     }
 
     void set_random_obstacles(int random_obstacles[][4])
@@ -450,6 +440,73 @@ public:
             add_obstacle(random_obstacles[i][0], random_obstacles[i][1], random_obstacles[i][2], random_obstacles[i][3]);
         }
     }
+    bool check_parallel(struct Node* rand_node, struct Node* nearest_node)
+    {
+        double error = 0.0;
+
+        int x1 = nearest_node->x;
+        int y1 = nearest_node->y;
+        double theta_1 = nearest_node->orientation;
+
+        int x2 = rand_node->x;
+        int y2 = rand_node->y;
+        double theta_2 = rand_node->orientation;
+
+        double parallel_threshold = 0.3;
+        double parallel_error_threshold = 0.02;
+
+        double theta_avg = (theta_1 + theta_2)/2;
+
+        if(x1 == x2)
+        {
+            if(y1 == y2)
+                return false;
+            else if (y1 > y2)
+            {
+                if(abs(theta_avg - 3 * acos(0.0)) < parallel_error_threshold)
+                    return true;
+                else
+                    return false;
+            }
+            else
+            {
+                if(abs(theta_avg - acos(0.0)) < parallel_error_threshold)
+                    return true;
+                else
+                    return false;
+            }
+        }
+        if(y1 == y2)
+        {
+            if(x2 > x1)
+            {
+                error = std::min(theta_avg, 4 * acos(0.0) - theta_avg);
+            }
+            else
+            {
+                error = 2 * acos(0.0) - theta_avg;
+            }
+        }
+        if(abs(rand_node->orientation - nearest_node->orientation) < parallel_threshold)
+        {
+            if((rand_node->x > nearest_node->x) && (rand_node->y > nearest_node->y))
+                error = atan((y2 - y1)/(x2 - x1)) - theta_avg;
+
+            else if((rand_node->x > nearest_node->x) && (rand_node->y < nearest_node->y))
+                error = atan((y2 - y1)/(x2 - x1)) - 4 * acos(0.0) + theta_avg;
+
+            else if((rand_node->x < nearest_node->x) && (rand_node->y > nearest_node->y))
+                error = atan((y2 - y1)/(x2 - x1)) - 2 * acos(0.0) + theta_avg;
+
+            else
+                error = atan((y2 - y1)/(x2 - x1)) + 2 * acos(0.0) + theta_avg;
+        }
+
+        if(abs(error) < parallel_error_threshold)
+            return true;
+        else
+            return false;
+    }
 };
 
 int main()
@@ -457,9 +514,15 @@ int main()
     int height = 400;
     int width = 400;
     int randomize_obstacles = 1;
-    int num_random_obstacles = 100;
+    int num_random_obstacles = 0;
     int rand_obst_min_height = 8;
     int rand_obst_max_height = 12;
+
+    double step_size = 35.0;
+    double search_radius = 45.0;
+    double rho_min = 150;
+    double initial_orientation = 3 * 3.1415 / 2;
+    int ITERATIONS = 200000;
 
     int random_obstacles[num_random_obstacles][4];
 
@@ -482,8 +545,6 @@ int main()
     start->cost = 0.0;
     struct Node* goal = new Node(320,320);
 
-    double step_size = 30.0, search_radius = 40.0, rho_min = 150, initial_orientation = 3 * 3.1415 / 2;
-    int ITERATIONS = 200000;
 
     Map map(height,width,start,goal,step_size,search_radius,randomize_obstacles,num_random_obstacles, rand_obst_max_height);
 
@@ -493,7 +554,7 @@ int main()
     struct Node* steered_node_global = new Node(start->x, start->y);
     struct Node* nearest_node = new Node();
     
-    while(map.euclidean_distance(steered_node_global,goal) > step_size)
+    while(map.arc_distance(steered_node_global,goal) > step_size)
     {
         rand_node = map.sample();
 
@@ -502,7 +563,15 @@ int main()
 
         nearest_node = map.find_nearest(rand_node);
 
-        struct Node* steered_node = new Node(map.steer(rand_node,nearest_node)->x, map.steer(rand_node,nearest_node)->y);
+        // struct Node* steered_node = new Node(map.steer(rand_node,nearest_node)->x, map.steer(rand_node,nearest_node)->y);
+        
+        double arc_dist = map.arc_distance(nearest_node, rand_node);
+
+        if((arc_dist > step_size))
+            continue;
+
+        struct Node* steered_node = new Node(rand_node->x, rand_node->y);
+        steered_node->orientation = rand_node->orientation;
     
         if(map.is_obstacle(steered_node))
             continue;
@@ -510,11 +579,14 @@ int main()
         if(map.obstacle_in_path(nearest_node,steered_node))
             continue;
         
+        if(!map.check_parallel(nearest_node,steered_node))
+            continue;
+        
         if(!map.check_kino(nearest_node,steered_node, rho_min))
             continue;
 
         steered_node->parent = nearest_node;
-        steered_node->cost = nearest_node->cost + map.euclidean_distance(nearest_node,steered_node);
+        steered_node->cost = nearest_node->cost + map.arc_distance(nearest_node,steered_node);
         map.set_node_costs(initial_orientation);
         
         steered_node_global = steered_node;
@@ -564,9 +636,20 @@ int main()
 
         nearest_node = map.find_nearest(rand_node);
 
-        struct Node* steered_node = new Node(map.steer(rand_node,nearest_node)->x, map.steer(rand_node,nearest_node)->y);
+        // struct Node* steered_node = new Node(map.steer(rand_node,nearest_node)->x, map.steer(rand_node,nearest_node)->y);
+
+        double arc_dist = map.arc_distance(nearest_node, rand_node);
+
+        if((arc_dist > step_size))
+            continue;
+
+        struct Node* steered_node = new Node(rand_node->x, rand_node->y);
+        steered_node->orientation = rand_node->orientation;
     
         if(map.is_obstacle(steered_node))
+            continue;
+        
+        if(!map.check_parallel(nearest_node,steered_node))
             continue;
         
         if(map.obstacle_in_path(nearest_node,steered_node))
@@ -579,7 +662,7 @@ int main()
         }
 
         steered_node->parent = nearest_node;
-        steered_node->cost = nearest_node->cost + map.euclidean_distance(nearest_node,steered_node);
+        steered_node->cost = nearest_node->cost + map.arc_distance(nearest_node,steered_node);
         map.set_node_costs(initial_orientation);
         steered_node_global = steered_node;
         

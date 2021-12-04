@@ -7,5 +7,5 @@ SET(OpenCV_DIR /usr/local/lib/cmake/opencv4)
 
 project(rrt_star)
 find_package( OpenCV REQUIRED )
-add_executable( rrt_star rrt_star.cpp )
+add_executable( rrt_star rrt_star_new.cpp )
 target_link_libraries(rrt_star ${OpenCV_LIBS})
