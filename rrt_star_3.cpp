@@ -7,6 +7,8 @@
 #include <opencv2/opencv.hpp>
 #include <omp.h>
 #include <cmath>
+#include <Eigen/Dense>
+#include <Eigen/SVD>
 
 struct Node
 {
@@ -35,6 +37,7 @@ public:
     struct Node* goal = new Node();
     std::vector<struct Node*> nodes;
     cv::Mat world;
+    double major_axis = 0.0, minor_axis = 0.0;
 
     Map(int h, int w, struct Node* s, struct Node* g, double s_s, int s_r, int r_o, int n_r_o, int r_o_m_h)
     {
@@ -103,6 +106,73 @@ public:
         sample->orientation = dist_orientation(mt);
 
         return sample;
+    }
+    struct Node* informed_sample(double c_best)
+    {
+        double c_min = euclidean_distance(start,goal);
+        Eigen::MatrixXd x_centre(3,1);
+        x_centre(0,0) = (start->x + goal->x) / 2;
+        x_centre(1,0) = (start->y + goal->y) / 2;
+        x_centre(2,0) = 0.0;
+
+        Eigen::MatrixXd a1(3,1);
+        a1(0,0) = (goal->x - start->x) / c_min;
+        a1(1,0) = (goal->y - start->y) / c_min;
+        a1(2,0) = 0.0;
+        
+        Eigen::MatrixXd i1(1,3);
+        i1(0,0) = 1.0;
+        i1(0,1) = 0.0;
+        i1(0,2) = 0.0;
+        
+        Eigen::MatrixXd M = a1 * i1;
+
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
+        
+        double det_U = (svd.matrixU()).determinant();
+        double det_V = (svd.matrixV()).determinant();
+        int dim = M.rows();
+        Eigen::MatrixXd c_middle_term(dim,dim);
+        c_middle_term.setIdentity();
+        c_middle_term(dim-1,dim-1) = det_U * det_V;
+        Eigen::MatrixXd C = svd.matrixU() * c_middle_term * svd.matrixV().transpose();
+
+        double diag_terms = 0.0;
+
+        try
+        {
+            diag_terms = sqrt(c_best * c_best - c_min * c_min)/2;
+            throw c_best;
+        }
+        catch (double c_best)
+        {
+            diag_terms = c_best/2;
+        }
+            
+        Eigen::MatrixXd L(dim,dim);
+        L = L.setIdentity() * diag_terms;
+        L(0,0) = c_best / 2;
+
+        std::random_device ball;
+        std::mt19937 mt(ball());
+        std::uniform_real_distribution<double> x_ball_theta_f(0.0, 1.0);
+        std::uniform_real_distribution<double> x_ball_rad_f(0.0, 1.0);
+
+        double x_ball_theta = x_ball_theta_f(mt) * 4 * acos(0.0);
+        double x_ball_rad = x_ball_rad_f(mt);
+        Eigen::MatrixXd x_ball(dim,1);
+        x_ball(0,0) = x_ball_rad * cos(x_ball_theta);
+        x_ball(1,0) = x_ball_rad * sin(x_ball_theta);
+        x_ball(2,0) = 0.0;
+
+        Eigen::MatrixXd x_f = C * L * x_ball + x_centre;
+        
+        struct Node* x_rand = new Node(x_f(1,0), x_f(0,0));
+
+        major_axis = c_best;
+        minor_axis = diag_terms;
+
+        return x_rand;
     }
     struct Node* find_nearest(struct Node* curr_node)
     {
@@ -217,36 +287,6 @@ public:
             std::cout << "(" << curr_node->x << "," << curr_node->y << ") : " << curr_node->flag << " : " << curr_node->orientation << std::endl;
 
             curr_node = curr_node->parent;
-
-            // int x1 = curr_node->x;
-            // int y1 = curr_node->y;
-            // int x2 = curr_node->parent->x;
-            // int y2 = curr_node->parent->y;
-            // double theta_1 = curr_node->orientation;
-            // double theta_2 = curr_node->parent->orientation;
-
-            // double num = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
-            // double den = (2 * (x2 - x1) * sin(theta_1) - 2 * (y2 - y1) * cos(theta_1));
-
-            // double abs_den = abs(den);
-
-            // double rho = num/abs_den;
-            // double xc = 0.0, yc = 0.0;
-
-            // if(den < 0)
-            // {
-            //     xc = x1 - rho * sin(theta_1);
-            //     yc = y1 + rho * cos(theta_1);
-            // }
-
-            // else
-            // {
-            //     xc = x1 + rho * sin(theta_1);
-            //     yc = y1 - rho * cos(theta_1);
-            // }
-            
-            // cv::Point center = cv::Point(xc, yc);
-            // cv::circle(world, center, rho, (255,0,0), 1, cv::LINE_8);
         }
         cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
         cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
@@ -255,6 +295,16 @@ public:
         point_1 = cv::Point(curr_node->x,curr_node->y);
         point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
         cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
+
+        cv::Point center((start->x + goal->x) / 2, (start->y + goal->y) / 2);
+        cv::Size xy(major_axis, minor_axis);
+        int angle = atan2(goal->y - start->y, goal->x - start->x) * 180.0 / (2 * acos(0.0));
+        int starting_point = 0;
+        int ending_point = 360;
+        cv::Scalar line_Color(128, 128, 128);
+        int thickness = 1;
+
+        cv::ellipse(world, center, xy, angle, starting_point, ending_point, line_Color,thickness);
 
         cv::imshow("Output Window",world);
     }
@@ -291,7 +341,7 @@ public:
             // add_obstacle(50,50,50,300);
             // add_obstacle(300,50,200,50);
             // add_obstacle(100,200,50,250);
-            add_obstacle(100,100,200,200);
+            add_obstacle(170,170,20,20);
         }
     }
     void rewire(struct Node* node, std::vector<struct Node*> neighbours, double rho_min, int random_obstacles[][4], double initial_orientation)
@@ -407,14 +457,14 @@ int main()
     int height = 400;
     int width = 400;
 
-    int randomize_obstacles = 1;
+    int randomize_obstacles = 0;
     int num_random_obstacles = 10;
     int rand_obst_min_height = 8;
-    int rand_obst_max_height = 50;
+    int rand_obst_max_height = 17;
 
     double step_size = 30.0;
-    double search_radius = 70.0;
-    double rho_min = 100;
+    double search_radius = 40.0;
+    double rho_min = 20;
     double initial_orientation = 7 * 3.1415 / 4;
 
     int random_obstacles[num_random_obstacles][4];
@@ -437,7 +487,7 @@ int main()
     struct Node* start = new Node(40,40);
     start->cost = 0.0;
     start->orientation = initial_orientation;
-    struct Node* goal = new Node(40,320);
+    struct Node* goal = new Node(320,320);
 
     int ITERATIONS = 200000;
 
@@ -520,7 +570,7 @@ int main()
     {
         std::cout << "Iter [" << iter << "/" << ITERATIONS << "] : " << map.goal->cost << std::endl;
         
-        rand_node = map.sample();
+        rand_node = map.informed_sample(map.goal->cost);
 
         if(rand_node->x == start->x && rand_node->y == start->y)
             continue;
