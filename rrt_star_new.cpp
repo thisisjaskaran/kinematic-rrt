@@ -216,6 +216,36 @@ public:
             std::cout << "(" << curr_node->x << "," << curr_node->y << ") : " << curr_node->flag << " : " << curr_node->orientation << std::endl;
 
             curr_node = curr_node->parent;
+
+            // int x1 = curr_node->x;
+            // int y1 = curr_node->y;
+            // int x2 = curr_node->parent->x;
+            // int y2 = curr_node->parent->y;
+            // double theta_1 = curr_node->orientation;
+            // double theta_2 = curr_node->parent->orientation;
+
+            // double num = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+            // double den = (2 * (x2 - x1) * sin(theta_1) - 2 * (y2 - y1) * cos(theta_1));
+
+            // double abs_den = abs(den);
+
+            // double rho = num/abs_den;
+            // double xc = 0.0, yc = 0.0;
+
+            // if(den < 0)
+            // {
+            //     xc = x1 - rho * sin(theta_1);
+            //     yc = y1 + rho * cos(theta_1);
+            // }
+
+            // else
+            // {
+            //     xc = x1 + rho * sin(theta_1);
+            //     yc = y1 - rho * cos(theta_1);
+            // }
+            
+            // cv::Point center = cv::Point(xc, yc);
+            // cv::circle(world, center, rho, (255,0,0), 1, cv::LINE_8);
         }
         cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
         cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
@@ -290,68 +320,48 @@ public:
     bool check_kino(struct Node* node_1, struct Node* node_2, double rho_min)
     {
         int x1 = node_1->x;
-        int y1 = node_1->y;
+        int y1 = height - node_1->y;
         int x2 = node_2->x;
-        int y2 = node_2->y;
+        int y2 = height - node_2->y;
         double theta_1 = node_1->orientation;
         double theta_2 = node_2->orientation;
 
-        double d = euclidean_distance(node_1,node_2);
-        double even_threshold = 0.3;
-        double odd_threshold = 0.3;
-        double parallel_threshold = 0.5;
-        double concurrency_threshold = 0.05;
-        int pixel_threshold = 2;
+        // std::cout << "theta_1 : " << theta_1 << std::endl;
 
-        double angle_from_x_1 = std::min(std::min(abs(theta_1), abs(2 * acos(0.0) - theta_1)), abs(4 * acos(0.0) - theta_1));
-        double angle_from_x_2 = std::min(std::min(abs(theta_2), abs(2 * acos(0.0) - theta_2)), abs(4 * acos(0.0) - theta_2));
+        double delta_theta = std::min(abs(theta_1 - theta_2), abs(4 * acos(0.0) - abs(theta_1 - theta_2)));
 
-        double angle_from_y_1 = std::min(abs(acos(0.0) - theta_1), abs(3 * acos(0.0) - theta_1));
-        double angle_from_y_2 = std::min(abs(acos(0.0) - theta_2), abs(3 * acos(0.0) - theta_2));
+        if((delta_theta < 0.01) || (abs(delta_theta - 2 * acos(0.0)) < 0.1) || (tan(theta_1) - tan(theta_2) < 0.1))
+            return false;
+        
+        double line_angle = std::min(atan2(y2 - y1, x2 - x1), 4 * acos(0.0) - atan2(y2 - y1, x2 - x1));
 
-        if(0)
-            int a = 1;
-        if((angle_from_x_1 < even_threshold) && (angle_from_x_2 < even_threshold))
+        if(line_angle - theta_1 < 0.1)
         {
-            // std::cout << "Near zero or pi" << std::endl;
-            node_2->flag = 0;
-            if((abs(y1 - y2) < pixel_threshold) && (abs(x1 - x2) > pixel_threshold))
+            if(line_angle - theta_2 < 0.1)
+            {
+                // std::cout << "Checking (" << x1 << "," << y1 << ") and (" << x2 << "," << y2 << ")" << std::endl;
                 return true;
+            }
             else
                 return false;
         }
-        else if((angle_from_y_1 < odd_threshold) && (angle_from_y_2 < odd_threshold))
-        {
-            node_2->flag = 1;
-            // std::cout << "Near pi/2 or 3*pi/2" << std::endl;
-            if((abs(x1 - x2) < pixel_threshold) && (abs(y1 - y2) > pixel_threshold))
-                return true;
-            else
-                return false;
-        }
-        // else if (abs(theta_1 - theta_2 ) < parallel_threshold)
-        // {
-        //     node_2->flag = 2;
-        //     // std::cout << "On the same line" << std::endl;
-        //     if(abs(atan2(y2 - y1, x2 - x1) - theta_1) < concurrency_threshold)
-        //         return true;
-        //     else
-        //         return false;
-        // }
-        else
-        {
-            node_2->flag = 3;
-            // std::cout << "Normal kino check" << std::endl;
 
-            double delta_theta = std::min(abs(theta_1 - theta_2), abs(4 * acos(0.0) - abs(theta_1 - theta_2)));
-            
-            double rho = d / (2 * sin(delta_theta / 2));
+        double num = (y2 - y1) * tan(theta_1) * tan(theta_2) + x2 * tan(theta_1) - x1 * tan(theta_2);
+        double den = tan(theta_1) - tan(theta_2);
 
-            if(rho > rho_min)
-                return true;
-            else
-                return false;
-        }
+        int xc = round(num / den);
+        int yc = round((x1 - xc) / tan(theta_1) + y1);
+
+        // std::cout << "Center : (" << xc << "," << yc << ")" << std::endl;
+
+        struct Node* center = new Node(xc, yc);
+
+        double rho = euclidean_distance(center, node_1);
+
+        if(rho < rho_min)
+            return false;
+        // std::cout << "Checking (" << x1 << "," << y1 << ") and (" << x2 << "," << y2 << ")" << std::endl;
+        return true;
     }
     double set_goal_cost()
     {
@@ -382,83 +392,22 @@ public:
             add_obstacle(random_obstacles[i][0], random_obstacles[i][1], random_obstacles[i][2], random_obstacles[i][3]);
         }
     }
-    bool check_parallel(struct Node* rand_node, struct Node* nearest_node)
-    {
-        double error = 0.0;
-
-        int x1 = nearest_node->x;
-        int y1 = nearest_node->y;
-        double theta_1 = nearest_node->orientation;
-
-        int x2 = rand_node->x;
-        int y2 = rand_node->y;
-        double theta_2 = rand_node->orientation;
-
-        double parallel_threshold = 0.3;
-        double parallel_error_threshold = 0.02;
-
-        double theta_avg = (theta_1 + theta_2)/2;
-
-        if(x1 == x2)
-        {
-            if(y1 == y2)
-                return false;
-            else if (y1 > y2)
-            {
-                if(abs(theta_avg - 3 * acos(0.0)) < parallel_error_threshold)
-                    return true;
-                else
-                    return false;
-            }
-            else
-            {
-                if(abs(theta_avg - acos(0.0)) < parallel_error_threshold)
-                    return true;
-                else
-                    return false;
-            }
-        }
-        if(y1 == y2)
-        {
-            if(x2 > x1)
-            {
-                error = std::min(theta_avg, 4 * acos(0.0) - theta_avg);
-            }
-            else
-            {
-                error = 2 * acos(0.0) - theta_avg;
-            }
-        }
-        if(abs(rand_node->orientation - nearest_node->orientation) < parallel_threshold)
-        {
-            if((rand_node->x > nearest_node->x) && (rand_node->y > nearest_node->y))
-                error = atan((y2 - y1)/(x2 - x1)) - theta_avg;
-
-            else if((rand_node->x > nearest_node->x) && (rand_node->y < nearest_node->y))
-                error = atan((y2 - y1)/(x2 - x1)) - 4 * acos(0.0) + theta_avg;
-
-            else if((rand_node->x < nearest_node->x) && (rand_node->y > nearest_node->y))
-                error = atan((y2 - y1)/(x2 - x1)) - 2 * acos(0.0) + theta_avg;
-
-            else
-                error = atan((y2 - y1)/(x2 - x1)) + 2 * acos(0.0) + theta_avg;
-        }
-
-        if(abs(error) < parallel_error_threshold)
-            return true;
-        else
-            return false;
-    }
 };
 
 int main()
 {
     int height = 400;
     int width = 400;
+
     int randomize_obstacles = 1;
     int num_random_obstacles = 0;
     int rand_obst_min_height = 8;
     int rand_obst_max_height = 12;
+
+    double step_size = 40.0;
+    double search_radius = 50.0;
+    double rho_min = 100;
+    double initial_orientation = 7 * 3.1415 / 4;
 
     int random_obstacles[num_random_obstacles][4];
 
@@ -479,9 +428,9 @@ int main()
 
     struct Node* start = new Node(40,40);
     start->cost = 0.0;
+    start->orientation = initial_orientation;
     struct Node* goal = new Node(320,320);
 
-    double step_size = 30.0, search_radius = 50.0, rho_min = 100, initial_orientation = 7 * 3.1415 / 4;
     int ITERATIONS = 200000;
 
     Map map(height,width,start,goal,step_size,search_radius,randomize_obstacles,num_random_obstacles, rand_obst_max_height);
@@ -500,9 +449,6 @@ int main()
             continue;
 
         nearest_node = map.find_nearest(rand_node);
-
-        if(!map.check_parallel(nearest_node,rand_node))
-            continue;
         
         if(!map.check_kino(nearest_node,rand_node, rho_min))
             continue;
@@ -572,12 +518,6 @@ int main()
             continue;
 
         nearest_node = map.find_nearest(rand_node);
-
-        if(!map.check_parallel(nearest_node,rand_node))
-        {
-            --iter;
-            continue;
-        }
 
         if(!map.check_kino(nearest_node,rand_node, rho_min))
         {
