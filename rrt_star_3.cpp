@@ -402,9 +402,9 @@ public:
         }
 
         // going straight is okay
-        if(abs(line_angle - theta_1) < 0.2)
+        if(abs(line_angle - theta_1) < 0.1)
         {
-            if(abs(line_angle - theta_2) < 0.2)
+            if(abs(line_angle - theta_2) < 0.1)
                 return true;
             else
                 return false;
@@ -464,7 +464,7 @@ int main()
 
     double step_size = 30.0;
     double search_radius = 40.0;
-    double rho_min = 20;
+    double rho_min = 100;
     double initial_orientation = 7 * 3.1415 / 4;
 
     int random_obstacles[num_random_obstacles][4];
