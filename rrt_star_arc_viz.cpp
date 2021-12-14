@@ -10,6 +10,8 @@
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 
+#define PI 2*acos(0.0)
+
 struct Node
 {
     int x = 0,y = 0;
@@ -577,14 +579,77 @@ int main()
     rand_node->orientation = 7 * 3.14 / 4;
 
     struct Node* steered_node_global = new Node(50,50);
-    steered_node_global->orientation = 0 * acos(0.0) / 2;
+    steered_node_global->orientation = 45 * (PI / 180);
     
     steered_node_global->parent = rand_node;
 
-    struct Node* nearest_node = new Node(60,40);
-    nearest_node->orientation = (4/3) * acos(0.0) / 2;
+    // struct Node* nearest_node = new Node(round(200 + 50 * sqrt(3)),round(100 + 100 * sqrt(3) - 50));
+    struct Node* nearest_node = new Node(100,50);
+    nearest_node->orientation = 315 * (PI / 180);
     
     nearest_node->parent = steered_node_global;
+
+    int path_case = 3;
+
+    int xc = 0, yc = 0;
+    double rho = 0.0;
+
+    if(path_case == 0)
+    {
+        steered_node_global->x = 50;
+        steered_node_global->y = 50;
+        steered_node_global->orientation = 45 * (PI / 180);
+
+        nearest_node->x = 100;
+        nearest_node->y = 50;
+        nearest_node->orientation = 315 * (PI / 180);
+
+        xc = 75;
+        yc = 75;
+        rho = 25 * sqrt(2);
+    }
+    else if(path_case == 1)
+    {
+        steered_node_global->x = 50;
+        steered_node_global->y = 50;
+        steered_node_global->orientation = 0 * (PI / 180);
+
+        nearest_node->x = 100;
+        nearest_node->y = 70;
+        nearest_node->orientation = 270 * (PI / 180);
+
+        xc = 50;
+        yc = 70;
+        rho = 20;
+    }
+    else if(path_case == 2)
+    {
+        steered_node_global->x = 50;
+        steered_node_global->y = 50;
+        steered_node_global->orientation = 315 * (PI / 180);
+
+        nearest_node->x = 90;
+        nearest_node->y = 110;
+        nearest_node->orientation = 225 * (PI / 180);
+
+        xc = 40;
+        yc = 60;
+        rho = 10 * sqrt(2);
+    }
+    else if(path_case == 3)
+    {
+        steered_node_global->x = 50;
+        steered_node_global->y = 50;
+        steered_node_global->orientation = 0 * (PI / 180);
+
+        nearest_node->x = 75;
+        nearest_node->y = 75;
+        nearest_node->orientation = 270 * (PI / 180);
+
+        xc = 50;
+        yc = 75;
+        rho = 25;
+    }
     
     int x1 = steered_node_global->x;
     int y1 = steered_node_global->y;
@@ -593,59 +658,70 @@ int main()
     double theta_1 = steered_node_global->orientation;
     double theta_2 = nearest_node->orientation;
     
-    cv::circle(map.world,cv::Point(x1,y1),2,(0,0,255),1);
-    cv::circle(map.world,cv::Point(x2,y2),2,(0,0,255),1);
+    cv::circle(map.world,cv::Point(x1,y1),2,(0,255,0),2);
+    cv::circle(map.world,cv::Point(x2,y2),2,(0,0,255),2);
 
-    y1 = height - y1;
-    y2 = height - y2;
+    cv::Point point_1 = cv::Point(steered_node_global->x,steered_node_global->y);
+    cv::Point point_2 = cv::Point(steered_node_global->x + 10 * cos(steered_node_global->orientation),steered_node_global->y - 10 * sin(steered_node_global->orientation));
 
-    double xc_num = 0.0, xc_den = 0.0;
-    int xc = 0, yc = 0;
+    cv::Point point_3 = cv::Point(nearest_node->x,nearest_node->y);
+    cv::Point point_4 = cv::Point(nearest_node->x + 10 * cos(nearest_node->orientation),nearest_node->y - 10 * sin(nearest_node->orientation));
 
-    if((abs(theta_1) < 0.1) && (abs(theta_2) < 0.1)) // 0,0
-        int a = 0;
-    else if((abs(theta_1) < 0.1) && (abs(tan(theta_2)) < 9999)) // 0,a
-    {
-        xc = x1;
-        yc = y2 - (x1 - x2) / tan(theta_2);
-    }
-    else if((abs(theta_1) < 0.1) && (abs(tan(theta_2)) < 9999)) // 0,a
-    {
-        xc = x1;
-        yc = y1 - (x1 - x2) / tan(theta_1);
-    }
-    else if((abs(theta_1) < 9999) && (abs(tan(theta_2)) < 9999)) // a,a
-    {
-        xc_num = x2 * tan(theta_1) - x1 * tan(theta_2) - (y1 - y2) * tan(theta_1) * tan(theta_2);
-        xc_den = tan(theta_1) - tan(theta_2);
-
-        xc = round(xc_num / xc_den);
-        yc = round(y1 - (xc - x1) / tan(theta_1));
-    }
-    else if((abs(theta_1) < 9999) && (abs(tan(theta_2)) > 9999)) // a,inf
-    {
-        xc = x1 + (y1 - y2) * tan(theta_1);
-        yc = y2;
-    }
-    else if((abs(theta_1) > 9999) && (abs(tan(theta_2)) < 9999)) // inf,a
-    {
-        xc = x2 - (y1 - y2) * tan(theta_2);
-        yc = y1;
-    }
-    else
-    {
-        std::cout << "Both inf" << std::endl;
-        cv::waitKey(0);
-    }
-
-    double rho = sqrt((x1 - xc) * (x1 - xc) + (y1 - yc) * (y1 - yc));
+    cv::arrowedLine(map.world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
+    cv::arrowedLine(map.world, point_3, point_4, cv::Scalar(255,0,255), 2, cv::LINE_8);
     
-    yc = height - yc;
-    
-    std::cout << xc << "," << yc << ", rho : " << rho << std::endl;
+    std::cout << xc << "," << yc << " , rho : " << rho << std::endl;
 
-    // if(xc > 0 && xc < width && yc > 0 && yc < height)
-    cv::circle(map.world,cv::Point(xc,yc),rho,(0,0,0),1);
+    cv::circle(map.world,cv::Point(round(xc),round(yc)),rho,(0,0,0),1);
+
+    // double dist_1 = sqrt((xc - x1) * (xc - x1) + (yc - y1) * (yc - y1));
+    // double dist_2 = sqrt((xc - x2) * (xc - x2) + (yc - y2) * (yc - y2));
+
+    // double minor_axis = std::min(dist_1,dist_2);
+    // double major_axis = std::max(dist_1,dist_2);
+
+    // double angle = 0.0;
+    // double theta = 0.0;
+
+    // if(dist_1 > dist_2)
+    // {
+    //     theta = atan2(y1 - yc, x1 - xc);
+    // }
+    // else
+    // {
+    //     theta = atan2(y2 - yc, x2 - xc);
+    // }
+
+    // if(theta >= 0 && theta <= PI/2)
+    // {
+    //     angle = -theta;
+    // }
+    // else if(theta >= PI/2 && theta <= PI)
+    // {
+    //     angle = PI - theta;
+    // }
+    // else if(theta <= 0 && theta >= -PI/2)
+    // {
+    //     angle = -theta;
+    // }
+    // else
+    // {
+    //     angle = -PI - theta;
+    // }
+
+    // std::cout << "Angle : " << angle << " theta : " << theta << std::endl;
+
+    // angle = angle * 180 / PI;
+    // theta = theta * 180 / PI;
+
+    // std::cout << "Angle : " << angle << " theta : " << theta << std::endl;
+
+    // double start_angle = 0;
+    // double end_angle = 360;
+
+    // std::cout << "Start : " << start_angle << " End : " << end_angle << std::endl;
+
+    // cv::ellipse(map.world, cv::Point(xc,yc), cv::Size(major_axis,minor_axis),angle,start_angle,end_angle,(0,0,255),1);
     
     cv::imshow("Output Window",map.world);
 

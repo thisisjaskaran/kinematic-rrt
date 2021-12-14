@@ -10,7 +10,7 @@ project(rrt_star)
 find_package( OpenCV REQUIRED )
 find_package (Eigen3 3.4 REQUIRED NO_MODULE)
 
-add_executable( rrt_star rrt_star_3.cpp )
+add_executable( rrt_star rrt_star_arc_viz.cpp )
 
 target_link_libraries(rrt_star ${OpenCV_LIBS})
 target_link_libraries (rrt_star Eigen3::Eigen)

@@ -256,6 +256,67 @@ public:
             }
         }
     }
+    void display_arc(struct Node* node_1, struct Node* node_2, int xc, int yc, double rho)
+    {
+        int x1 = node_1->x;
+        int y1 = node_1->y;
+        int x2 = node_2->x;
+        int y2 = node_2->y;
+        double theta_1 = node_1->orientation;
+        double theta_2 = node_2->orientation;
+        
+        // cv::circle(world,cv::Point(x1,y1),2,(0,255,0),2);
+        // cv::circle(world,cv::Point(x2,y2),2,(0,0,255),2);
+        
+        // std::cout << xc << "," << yc << " , rho : " << rho << std::endl;
+
+        // cv::circle(world,cv::Point(round(xc),round(yc)),rho,(0,0,0),1);
+
+        double dist_1 = sqrt((xc - x1) * (xc - x1) + (yc - y1) * (yc - y1));
+        double dist_2 = sqrt((xc - x2) * (xc - x2) + (yc - y2) * (yc - y2));
+
+        double minor_axis = std::min(dist_1,dist_2);
+        double major_axis = std::max(dist_1,dist_2);
+
+        double angle = 0.0;
+        double theta = 0.0;
+
+        if(dist_1 > dist_2)
+        {
+            theta = atan2(y1 - yc, x1 - xc);
+        }
+        else
+        {
+            theta = atan2(y2 - yc, x2 - xc);
+        }
+
+        if(theta >= 0 && theta <= PI/2)
+        {
+            angle = -theta;
+        }
+        else if(theta >= PI/2 && theta <= PI)
+        {
+            angle = PI - theta;
+        }
+        else if(theta <= 0 && theta >= -PI/2)
+        {
+            angle = -theta;
+        }
+        else
+        {
+            angle = -PI - theta;
+        }
+
+        // std::cout << "Angle : " << angle << " theta : " << theta << std::endl;
+
+        double start_angle = 0;
+        double end_angle = 360;
+
+        // std::cout << "Start : " << start_angle << " End : " << end_angle << std::endl;
+
+        cv::ellipse(world, cv::Point(xc,yc), cv::Size(major_axis,minor_axis),angle,start_angle,end_angle,(0,0,255),1);
+
+    }
     void display_map(bool found = false)
     {
         for(int i = 1; i < nodes.size(); i++)
@@ -284,7 +345,9 @@ public:
             point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
             cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
 
-            std::cout << "(" << curr_node->x << "," << curr_node->y << ") : " << curr_node->flag << " : " << curr_node->orientation << std::endl;
+            // std::cout << "(" << curr_node->x << "," << curr_node->y << ") : " << curr_node->flag << " : " << curr_node->orientation << std::endl;
+
+            display_arc(curr_node->parent->parent, curr_node->parent);
 
             curr_node = curr_node->parent;
         }
@@ -386,40 +449,50 @@ public:
         int y2 = height - node_2->y;
         double theta_1 = node_1->orientation;
         double theta_2 = node_2->orientation;
-
-        double delta_theta = std::min(abs(theta_1 - theta_2), abs(4 * acos(0.0) - abs(theta_1 - theta_2)));
-        double delta_tan_theta = abs(tan(theta_1) - tan(theta_2));
         
-        double line_angle = 0.0;
+        cv::circle(world,cv::Point(x1,y1),2,(255,0,0),1);
+        cv::circle(world,cv::Point(x2,y2),2,1);
 
-        if(atan2(y2 - y1, x2 - x1) >= 0)
-        {
-            line_angle = atan2(y2 - y1, x2 - x1);
-        }
-        else
-        {
-            line_angle = 4 * acos(0.0) + atan2(y2 - y1, x2 - x1);
-        }
+        double xc_num = x2 * tan(theta_1) - x1 * tan(theta_2) - (y1 - y2) * tan(theta_1) * tan(theta_2);
+        double xc_den = tan(theta_1) - tan(theta_2);
 
-        // going straight is okay
-        if(abs(line_angle - theta_1) < 0.1)
-        {
-            if(abs(line_angle - theta_2) < 0.1)
-                return true;
-            else
-                return false;
-        }
+        int xc = round(xc_num / xc_den);
+        int yc = round(y1 - (xc - x1) / tan(theta_1));
 
-        // find minimum radius of curvature
-        double rho_1 = point_to_line(node_1, node_2);
-        double rho_2 = point_to_line(node_2, node_1);
+        double rho = sqrt((x1 - xc) * (x1 - xc) + (y1 - yc) * (y1 - yc));
 
-        double min_rho = std::min(rho_1, rho_2);
+        // if(atan2(y2 - y1, x2 - x1) >= 0)
+        // {
+        //     line_angle = atan2(y2 - y1, x2 - x1);
+        // }
+        // else
+        // {
+        //     line_angle = 4 * acos(0.0) + atan2(y2 - y1, x2 - x1);
+        // }
 
-        if(min_rho < rho_min)
+        // // going straight is okay
+        // if(abs(line_angle - theta_1) < 0.1)
+        // {
+        //     if(abs(line_angle - theta_2) < 0.1)
+        //         return true;
+        //     else
+        //         return false;
+        // }
+
+        // // find minimum radius of curvature
+        // double rho_1 = point_to_line(node_1, node_2);
+        // double rho_2 = point_to_line(node_2, node_1);
+
+        // double min_rho = std::min(rho_1, rho_2);
+
+        // if(min_rho < rho_min)
+        //     return false;
+        // else
+        //     return true;
+        // return true;
+        if(rho < rho_min)
             return false;
-        else
-            return true;
+        return true;
     }
     double set_goal_cost()
     {

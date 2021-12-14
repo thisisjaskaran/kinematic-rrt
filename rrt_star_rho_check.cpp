@@ -535,7 +535,7 @@ public:
 int main()
 {
     int height = 400;
-    int width = 400;
+    int width = 800;
 
     int randomize_obstacles = 0;
     int num_random_obstacles = 10;
@@ -575,14 +575,15 @@ int main()
 
     struct Node* rand_node = new Node(10,10);
     rand_node->orientation = 7 * 3.14 / 4;
-
-    struct Node* steered_node_global = new Node(50,50);
-    steered_node_global->orientation = 0 * acos(0.0) / 2;
+    
+    struct Node* steered_node_global = new Node(100,100);
+    steered_node_global->orientation = 30 * (2 * acos(0.0) / 180);
     
     steered_node_global->parent = rand_node;
 
-    struct Node* nearest_node = new Node(60,40);
-    nearest_node->orientation = (4/3) * acos(0.0) / 2;
+    // struct Node* nearest_node = new Node(round(200 + 50 * sqrt(3)),round(100 + 100 * sqrt(3) - 50));
+    struct Node* nearest_node = new Node(400,60);
+    nearest_node->orientation = 60 * (2 * acos(0.0) / 180);
     
     nearest_node->parent = steered_node_global;
     
@@ -609,7 +610,7 @@ int main()
         xc = x1;
         yc = y2 - (x1 - x2) / tan(theta_2);
     }
-    else if((abs(theta_1) < 0.1) && (abs(tan(theta_2)) < 9999)) // 0,a
+    else if((abs(theta_1) < 9999) && (abs(tan(theta_2)) < 0.1)) // a,0
     {
         xc = x1;
         yc = y1 - (x1 - x2) / tan(theta_1);
@@ -619,8 +620,8 @@ int main()
         xc_num = x2 * tan(theta_1) - x1 * tan(theta_2) - (y1 - y2) * tan(theta_1) * tan(theta_2);
         xc_den = tan(theta_1) - tan(theta_2);
 
-        xc = round(xc_num / xc_den);
-        yc = round(y1 - (xc - x1) / tan(theta_1));
+        xc = xc_num / xc_den;
+        yc = y1 - (xc - x1) / tan(theta_1);
     }
     else if((abs(theta_1) < 9999) && (abs(tan(theta_2)) > 9999)) // a,inf
     {
@@ -635,17 +636,24 @@ int main()
     else
     {
         std::cout << "Both inf" << std::endl;
-        cv::waitKey(0);
+        // cv::waitKey(0);
+        exit(0);
     }
 
     double rho = sqrt((x1 - xc) * (x1 - xc) + (y1 - yc) * (y1 - yc));
     
+    y1 = height - y1;
+    y2 = height - y2;
     yc = height - yc;
     
-    std::cout << xc << "," << yc << ", rho : " << rho << std::endl;
+    std::cout << xc << "," << yc << " , rho : " << rho << std::endl;
 
     // if(xc > 0 && xc < width && yc > 0 && yc < height)
-    cv::circle(map.world,cv::Point(xc,yc),rho,(0,0,0),1);
+    cv::circle(map.world,cv::Point(round(xc),round(yc)),rho,(0,0,0),1);
+
+    // double minor_axis = sqrt((xc - x1) * (xc - x1) + (yc - y1) * (yc - y1));
+    // double major_axis = sqrt((xc - x2) * (xc - x2) + (yc - y2) * (yc - y2));
+    // cv::ellipse(map.world, cv::Point(xc,yc), cv::Size(major_axis,minor_axis),0,0,90,(0,0,255),1);
     
     cv::imshow("Output Window",map.world);
 
