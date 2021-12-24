@@ -10,6 +10,8 @@
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 
+#include "shared/math/math_util.h"
+
 struct Node
 {
     int x = 0,y = 0;
@@ -75,22 +77,13 @@ public:
         int y1 = node_1->y;
         int x2 = node_2->x;
         int y2 = node_2->y;
-        double theta = node_1->orientation;
-        
-        double num = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
-        double den = (2 * (x2 - x1) * sin(theta) - 2 * (y2 - y1) * cos(theta));
+        double theta_1 = node_1->orientation;
+        double theta_2 = node_2->orientation;
 
-        double abs_den = abs(den);
+        double delta_theta = AngleDiff(theta_1,theta_2);
+        double d = euclidean_distance(node_1,node_2);
 
-        if(abs_den < 0.01)
-            return euclidean_distance(node_1,node_2);
-
-        double rho = 0.0, xc = 0.0, yc = 0.0;
-        rho = num/abs_den;
-
-        return (2 * rho * asin(euclidean_distance(node_1,node_2)/(2 * rho)));
-
-        // consider full turn case
+        return (d / (2 * sin(delta_theta/2)));
     }
     struct Node* sample()
     {
