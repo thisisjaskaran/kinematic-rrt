@@ -54,7 +54,7 @@ struct CostFunctor
     struct Node* rand_node = new Node(0,0);
     struct Node* nearest_node = new Node(0,0);
     
-    double gamma = 0.1;
+    double gamma = 1.0;
     int height;
     double rho_local;
 
@@ -114,7 +114,6 @@ struct CostFunctor
         else
         {
             // finding center of circle
-            //check once again for quadrants III and IV
             xc_alpha = (T_x1 + rho[0] * sin(theta_1));
             yc_alpha = (T_y1 - rho[0] * cos(theta_1));
 
@@ -152,14 +151,11 @@ struct CostFunctor
                 center_y = (yc_beta);
             }
         }
-        
-        // std::cout << "Center : " << center_x << "," << center_y << "\n";
 
         // finding del_x, del_y and del_theta
         T d = sqrt((T_y2 - center_y) * (T_y2 - center_y) + (T_x2 - center_x) * (T_x2 - center_x));
         T theta = atan2(T_y2 - center_y, T_x2 - center_x);
 
-        // todo
         T inside_diff = (atan2(T_y1 - center_y, T_x1 - center_x) - atan2(T_y2 - center_y, T_x2 - center_x));
 
         if(inside_diff < 0)
@@ -181,7 +177,7 @@ class Map
 {
 public:
     int found = 0;
-    int height, width, randomize_obstacles;
+    long long int height, width, randomize_obstacles;
     int num_random_obstacles, rand_obst_max_height;
     double step_size, search_radius;
     struct Node* start = new Node();
@@ -190,7 +186,7 @@ public:
     cv::Mat world;
     double major_axis = 0.0, minor_axis = 0.0;
 
-    Map(int h, int w, struct Node* s, struct Node* g, double s_s, int s_r, int r_o, int n_r_o, int r_o_m_h)
+    Map(long long int h, long long int w, struct Node* s, struct Node* g, double s_s, int s_r, int r_o, int n_r_o, int r_o_m_h)
     {
         height = h;
         width = w;
@@ -334,7 +330,7 @@ public:
         }
         return nearest_node;
     }
-    void display_arc(struct Node* node_1, struct Node* node_2, int xc, int yc, double rho)
+    void display_arc(struct Node* node_1, struct Node* node_2, int xc, int yc, double rho, int final = 0)
     {
         long long int x1 = node_1->x;
         long long int y1 = node_1->y;
@@ -343,7 +339,23 @@ public:
         double theta_1 = node_1->orientation;
         double theta_2 = node_2->orientation;
         
-        cv::circle(world,cv::Point(round(xc),round(yc)),rho,(100,100,100),1);
+        if(final == 0)
+            cv::circle(world,cv::Point(round(xc),round(yc)),rho,(100,100,100),1);
+        else
+            cv::circle(world,cv::Point(round(xc),round(yc)),rho,(0,0,255),1);
+    }
+    bool isValid(long long int x, long int y)
+    {
+        if(x < 0)
+            return false;
+        else if(y < 0)
+            return false;
+        else if(x >= width)
+            return false;
+        else if(y >= height)
+            return false;
+        else
+            return true;
     }
     struct Node* steer(struct Node* rand_node, struct Node* nearest_node, double rho_min)
     {
@@ -359,12 +371,12 @@ public:
 
         Solver::Options options;
         options.linear_solver_type = ceres::DENSE_QR;
-        options.minimizer_progress_to_stdout = true;
+        options.minimizer_progress_to_stdout = false;
         Solver::Summary summary;
         Solve(options, &problem, &summary);
 
         // std::cout << summary.BriefReport() << "\n";
-        std::cout << "rho : " << initial_rho << " -> " << rho << "\n";
+        // std::cout << "rho : " << initial_rho << " -> " << rho << "\n";
 
         if(rho < 100.0)
             rho = 100.0;
@@ -456,6 +468,18 @@ public:
     
         struct Node* center_node = new Node(round(center_x), round(height - center_y));
         double theta = atan2(rand_node->y - center_node->y, rand_node->x - center_node->x);
+
+        for(double thet = -PI; thet < PI; thet += 0.01)
+        {
+            int pix_x = center_node->x + rho * cos(thet);
+            int pix_y = center_node->y - rho * sin(thet);
+
+            if(!isValid(pix_x,pix_y))
+                continue;
+
+            if(world.at<cv::Vec3b>(pix_x,pix_y)[0] == 0 && world.at<cv::Vec3b>(pix_x,pix_y)[1] == 0 && world.at<cv::Vec3b>(pix_x,pix_y)[2] == 0)
+                return dummy;
+        }
         
         struct Node* steered_node_1 = new Node(round(center_node->x + rho * cos(theta)), round(center_node->y - rho * sin(theta)));
         struct Node* steered_node_2 = new Node(round(center_node->x - rho * cos(theta)), round(center_node->y + rho * sin(theta)));
@@ -473,32 +497,17 @@ public:
             steered_node->y = steered_node_2->y;
         }
 
-        double delta_theta = math_util::AngleDist(  atan2(nearest_node->y - center_node->y, nearest_node->x - center_node->x),
+        double delta_theta = math_util::AngleDiff(  atan2(nearest_node->y - center_node->y, nearest_node->x - center_node->x),
                                                     atan2(steered_node->y - center_node->y, steered_node->x - center_node->x));
 
-        double theta_2_alpha = atan2(steered_node->x - center_node->x, steered_node->y - center_node->y);
-        double theta_2_beta = math_util::AngleDiff(theta_2_alpha, PI);
-
-        if(abs(abs(nearest_node->orientation - theta_2_alpha) - delta_theta) < 0.1)
-            steered_node->orientation = theta_2_alpha;
+        if(delta_theta > 0)
+            steered_node->orientation = nearest_node->orientation + abs(delta_theta);
         else
-            steered_node->orientation = theta_2_beta;
+            steered_node->orientation = nearest_node->orientation - abs(delta_theta);
         
         steered_node->xc = center_node->x;
         steered_node->yc = center_node->y;
         steered_node->rho = rho;
-
-        // give orientation
-        // std::cout << "\n" << "Nearest node : " << nearest_node->x << "," << nearest_node->y << " : " << nearest_node->orientation << "\n";
-        // std::cout << "Rand node : " << rand_node->x << "," << rand_node->y << " : " << rand_node->orientation << "\n";
-        // std::cout << "Center : " << center_node->x << "," << center_node->y << " : " << center->orientation << "\n";
-        // std::cout << "Theta (rand, center) : " << theta << "\n";
-        // std::cout << "Rho : " << rho << "\n";
-        // std::cout << "Steered node : " << steered_node->x << "," << steered_node->y << " : " << steered_node->orientation << "\n";
-        // std::cout << "del : " << euclidean_distance(rand_node,center_node) - euclidean_distance(steered_node,center_node) << "\n";
-        // std::cout << "New Steered node : " << steered_node->x << "," << steered_node->y << " : " << steered_node->orientation << "\n\n";
-
-        // cv::circle(world, cv::Point(rand_node->x,rand_node->y), 2, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
 
         if((steered_node->x > 0) && (steered_node->y > 0) && (steered_node->x < width) && (steered_node->y < height) && (rho < 30000))
         {
@@ -523,7 +532,7 @@ public:
                 ending_point = theta_1;
             }
 
-            display_arc(nearest_node, steered_node, center_node->x, center_node->y, rho);
+            // display_arc(nearest_node, steered_node, center_node->x, center_node->y, rho);
             // cv::ellipse(world, center_point, xy, angle, starting_point, ending_point, (255,0,0),thickness);
         }
         else
@@ -538,6 +547,9 @@ public:
             world.at<cv::Vec3b>(node->y,node->x)[2] != 255)
             return true;
         return false;
+        // if(world.at<cv::Vec3b>(node->x,node->y)[0] == 0 && world.at<cv::Vec3b>(node->x,node->y)[1] == 0 && world.at<cv::Vec3b>(node->x,node->y)[2] == 0)
+        //     return false;
+        // return true;
     }
     // work here
     bool obstacle_in_path(struct Node* node_1, struct Node* node_2)
@@ -610,13 +622,13 @@ public:
             cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
             cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
             cv::line(world, point_1, point_2, cv::Scalar(0,0,255), 2, cv::LINE_8); 
-            // cv::circle(world, cv::Point(curr_node->parent->xc, curr_node->parent->yc), curr_node->parent->rho, cv::Scalar(0,0,255), 1);
+            cv::circle(world, cv::Point(curr_node->parent->xc, curr_node->parent->yc), 2, cv::Scalar(0,0,255), 1);
 
             point_1 = cv::Point(curr_node->x,curr_node->y);
             point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
             cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
 
-            // display_arc(curr_node->parent->parent, curr_node->parent);
+            // display_arc(curr_node, curr_node->parent, curr_node->xc, curr_node->yc, curr_node->rho, 1);
 
             curr_node = curr_node->parent;
         }
@@ -758,8 +770,8 @@ int main()
 {
     int wait = 2;
 
-    int height = 400;
-    int width = 400;
+    long long int height = 400;
+    long long int width = 400;
 
     int randomize_obstacles = 0;
     int num_random_obstacles = 10;
@@ -772,6 +784,7 @@ int main()
     double initial_orientation = -1 * 3.1415 / 4;
 
     int random_obstacles[num_random_obstacles][4];
+    std::cout << "Test AngleDiff : " << math_util::AngleDiff(PI/3,PI) << "\n";
 
     for(int i = 0; i < num_random_obstacles; i++)
     {
@@ -802,11 +815,16 @@ int main()
     struct Node* rand_node = new Node(start->x, start->y);
     struct Node* steered_node_global = new Node(start->x, start->y);
     struct Node* nearest_node = new Node();
+
+    std::cout << "Seg fault test\n\n";
     
     while(map.euclidean_distance(steered_node_global,goal) > step_size)
     {
         // sample a node
         rand_node = map.sample();
+
+        if(!map.isValid(rand_node->x,rand_node->y))
+            continue;
 
         if(rand_node->x == start->x && rand_node->y == start->y)
             continue;
@@ -816,33 +834,34 @@ int main()
 
         // needed to reject huge arcs
         double direct_distance = map.euclidean_distance(nearest_node, rand_node);
+        std::cout << "Found nearest : " << nearest_node->x << "," << nearest_node->y << " : " << direct_distance << "\n";
 
-        if((direct_distance > step_size))
+        if(direct_distance > step_size)
             continue;
 
+        std::cout << "Step size is okay" << "\n";
         // go into gradient descent
         // using gradient descent, find arc with minimum error of known cost function
         // this node will be the steered node and should have new (x,y,theta)
         struct Node* steered_node = new Node(0,0);
-        try
-        {
-            steered_node->x = map.steer(rand_node,nearest_node,rho_min)->x;
-            steered_node->y = map.steer(rand_node,nearest_node,rho_min)->y;
-            steered_node->orientation = map.steer(rand_node,nearest_node,rho_min)->orientation;
-        }
-        catch(...)
-        {
-            continue;
-        }
+    
+        steered_node->x = map.steer(rand_node,nearest_node,rho_min)->x;
+        steered_node->y = map.steer(rand_node,nearest_node,rho_min)->y;
+        steered_node->orientation = map.steer(rand_node,nearest_node,rho_min)->orientation;
+        std::cout << "Steered Node : " << steered_node->x << "," << steered_node->y << "\n";
 
-        if(steered_node->x < 0 || steered_node->y < 0)
+        if(steered_node->x == -1)
             continue;
 
-        std::cout << "Steering function working" << "\n";
+        if(!map.isValid(steered_node->x,steered_node->y))
+            continue;
+
         
+        std::cout << "Steering function working" << "\n";
         if(map.is_obstacle(steered_node))
             continue;
         
+        std::cout << "Steered node not in obstacle" << "\n";
         //needs to be written correctly
         // if(map.obstacle_in_path(nearest_node,steered_node))
         //     continue;
@@ -850,7 +869,6 @@ int main()
         steered_node->parent = nearest_node;
         steered_node->cost = nearest_node->cost + map.arc_distance(nearest_node,steered_node);
         map.set_node_costs(initial_orientation);
-        // steered_node->orientation = rand_node->orientation;
         
         steered_node_global = steered_node;
         
@@ -865,7 +883,7 @@ int main()
 
         map.display_map();
 
-        cv::waitKey(wait);
+        cv::waitKey(2);
     }
 
     map.goal->parent = steered_node_global;
@@ -886,7 +904,7 @@ int main()
     map.display_map();
     map.display_final_path();
 
-    cv::waitKey(wait);
+    cv::waitKey(0);
 
     // #pragma omp parallel for
     for(int iter = 0; iter < ITERATIONS; iter++)
@@ -934,7 +952,7 @@ int main()
         // map.display_map();
         map.display_final_path();
 
-        cv::waitKey(wait);
+        cv::waitKey(0);
 
         map.goal->cost = map.set_goal_cost();
     }
