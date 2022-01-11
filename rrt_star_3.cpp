@@ -813,7 +813,7 @@ public:
     }
 };
 
-int main()
+int main(int argc, char **argv)
 {
     int wait = 2;
 
@@ -862,9 +862,22 @@ int main()
     struct Node* rand_node = new Node(start->x, start->y);
     struct Node* steered_node_global = new Node(start->x, start->y);
     struct Node* nearest_node = new Node();
+
+    int count = -1;
     
     while(map.euclidean_distance(steered_node_global,goal) > distance_from_goal)
     {
+        ++count;
+
+        // amrl_msgs::VisualizationMsg msg;
+
+        // std::stringstream ss;
+        // ss << "hello world " << count;
+
+        // msg.seq = count;    
+        // msg.data = ss.str();
+
+        // ROS_INFO("%s", msg.data.c_str());
         // sample a node
         rand_node = map.sample();
         std::cout << "Sampled node : " << rand_node->x << "," << rand_node->y << std::endl;
