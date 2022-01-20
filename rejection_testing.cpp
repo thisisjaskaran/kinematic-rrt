@@ -57,71 +57,98 @@ struct CostFunctor
     struct Node* rand_node = new Node(0,0);
     struct Node* nearest_node = new Node(0,0);
     
-    double gamma = 10.0;
+    double gamma = 0.0;
     int height;
     double rho_local;
-
-    long long int x1 = nearest_node->x;
-    long long int y1 = height - nearest_node->y;
-    long long int x2 = rand_node->x;
-    long long int y2 = height - rand_node->y;
     
-    double theta_1 = nearest_node->orientation;
-    double theta_2 = rand_node->orientation;
+    // (200,500)
+    long long int x1 = nearest_node->x; // 40
+    long long int y1 = height - nearest_node->y; // 760
+    long long int x2 = rand_node->x; // 200
+    long long int y2 = height - rand_node->y; // 300
+    
+    double theta_1 = nearest_node->orientation; // -pi/4
+    double theta_2 = rand_node->orientation; // -pi/2
     
     CostFunctor(struct Node* node_1, struct Node* node_2, int h, double r_l)
     {
-        rand_node = node_1;
-        nearest_node = node_2;
+        rand_node->x = node_1->x;
+        rand_node->y = node_1->y;
+        rand_node->orientation = node_1->orientation;
+        
+        nearest_node->x = node_2->x;
+        nearest_node->y = node_2->y;
+        nearest_node->orientation = node_2->orientation;
+
         height = h;
         rho_local = r_l;
+
+        x1 = nearest_node->x; // 40
+        y1 = height - nearest_node->y; // 760
+        x2 = rand_node->x; // 200
+        y2 = height - rand_node->y; // 300
+        
+        theta_1 = nearest_node->orientation; // -pi/4
+        theta_2 = rand_node->orientation; // -pi/2
+
+        // std::cout << "x1 : " << x1 << std::endl;
+        // std::cout << "y1 : " << y1 << std::endl;
+        // std::cout << "x2 : " << x2 << std::endl;
+        // std::cout << "y2 : " << y2 << std::endl;
+
+        // std::cout << "theta_1 : " << theta_1 << std::endl;
+        // std::cout << "theta_2 : " << theta_2 << std::endl;
     }
     
     template <typename T>
     bool operator()(const T* rho, T* residual) const
     {
-        T T_x1 = T(nearest_node->x);
-        T T_y1 = T(height - nearest_node->y);
-        T T_x2 = T(rand_node->x);
-        T T_y2 = T(height - rand_node->y);
-        T T_rand_theta = T(rand_node->orientation);
+        T T_x1 = T(nearest_node->x); // 40
+        T T_y1 = T(height - nearest_node->y); // 760
+        T T_x2 = T(rand_node->x); // 40
+        T T_y2 = T(height - rand_node->y); // 40
+        T T_rand_theta = T(rand_node->orientation); // -pi/2
 
-        // preprocess using rho, rand_node and nearest_node to find del_x, del_y and del_theta
         T xc_alpha, yc_alpha, xc_beta, yc_beta;
         T value_given, value_obtained_alpha, value_obtained_beta;
 
         if(abs(tan(theta_1)) < 0.01)
         {
+            // std::cout << "horizontal : " << abs((theta_1)) << std::endl;
             xc_alpha = (T_x1 - rho[0]);
             yc_alpha = (T_y1);
 
             xc_beta = (T_x1 + rho[0]);
             yc_beta = (T_y1);
 
-            value_given = T_y2 - (T_x2 - T_x1) * tan(theta_1) - T_y1;
-            value_obtained_alpha = yc_alpha - (xc_alpha - T_x1) * tan(theta_1) - T_y1;
-            value_obtained_beta = yc_beta - (xc_beta - T_x1) * tan(theta_1) - T_y1;
+            value_given = (T_x2 - T_x1);
+            value_obtained_alpha = (xc_alpha - T_x1);
+            value_obtained_beta = (xc_beta - T_x1);
         }
         else if(abs(tan(theta_1)) > 30000)
         {
+            // std::cout << "vertical" << std::endl;
             xc_alpha = (T_x1);
             yc_alpha = (T_y1 + rho[0]);
 
             xc_beta = (T_x1);
             yc_beta = (T_y1 - rho[0]);
 
-            value_given = T_y2 - (T_x2 - T_x1) * tan(theta_1) - T_y1;
-            value_obtained_alpha = yc_alpha - (xc_alpha - T_x1) * tan(theta_1) - T_y1;
-            value_obtained_beta = yc_beta - (xc_beta - T_x1) * tan(theta_1) - T_y1;
+            value_given = T_y2 - T_y1;
+            value_obtained_alpha = yc_alpha - T_y1;
+            value_obtained_beta = yc_beta - T_y1;
         }
         else
         {
-            // finding center of circle
+            // std::cout << "theta_1 : " << theta_1 << std::endl;
             xc_alpha = (T_x1 + rho[0] * sin(theta_1));
             yc_alpha = (T_y1 - rho[0] * cos(theta_1));
 
             xc_beta = (T_x1 - rho[0] * sin(theta_1));
             yc_beta = (T_y1 + rho[0] * cos(theta_1));
+
+            // std::cout << "alpha : " << xc_alpha << "," << yc_alpha << std::endl;
+            // std::cout << "beta : " << xc_beta << "," << yc_beta << std::endl << std::endl;
 
             value_given = T_y2 - (T_x2 - T_x1) * tan(theta_1) - T_y1;
             value_obtained_alpha = yc_alpha - (xc_alpha - T_x1) * tan(theta_1) - T_y1;
@@ -170,11 +197,14 @@ struct CostFunctor
 
         if(del_theta < 0)
             del_theta *= -1;
-
+        
         residual[0] = (d - rho[0]) * cos(theta);
         residual[1] = (d - rho[0]) * sin(theta);
         residual[2] = gamma * del_theta + pow(rho[0],0);
         
+        std::cout << "d : " << d << std::endl;
+        std::cout << "rho[0] : " << rho[0] << std::endl << std::endl;
+
         return true;
     }
 };
@@ -250,9 +280,9 @@ public:
         sample->y = dist_height(mt);
         sample->orientation = dist_orientation(mt) - PI;
 
-        std::cout << "Sample x : " << sample->x << std::endl;
-        std::cout << "Sample y : " << sample->y << std::endl;
-        std::cout << "Sample orientation : " << sample->orientation << std::endl;
+        // std::cout << "Sample x : " << sample->x << std::endl;
+        // std::cout << "Sample y : " << sample->y << std::endl;
+        // std::cout << "Sample orientation : " << sample->orientation << std::endl;
 
         if(sample_number % 5 == 0)
         {
@@ -260,7 +290,10 @@ public:
             sample->y = goal->y;
         }
 
-        ++sample_number;
+        // sample->x = 40;
+        // sample->y = 760;
+        // sample->orientation = -acos(0.0);
+        // sample_number += 10;
 
         return sample;
     }
@@ -467,10 +500,22 @@ public:
                 return dummy;
         }
         
-        struct Node* steered_node_1 = new Node(round(center_node->x + rho * cos(theta)), round(center_node->y + rho * sin(theta)));
-        struct Node* steered_node_2 = new Node(round(center_node->x - rho * cos(theta)), round(center_node->y - rho * sin(theta)));
+        struct Node* steered_node_1 = new Node(round(center_x + rho * cos(theta)), round(height - center_y + rho * sin(theta)));
+        struct Node* steered_node_2 = new Node(round(center_x - rho * cos(theta)), round(height - center_y - rho * sin(theta)));
 
         struct Node* steered_node = new Node(0,0);
+
+        // check if straight motion
+        // if(abs(atan2(nearest_node->y - rand_node->y, rand_node->x - nearest_node->x) - nearest_node->orientation) < 0.1)
+        // {
+        //     steered_node->x = rand_node->x;
+        //     steered_node->y = rand_node->y;
+        //     // steered_node->orientation = nearest_node->orientation;
+        //     steered_node->orientation = atan2(nearest_node->y - rand_node->y, rand_node->x - nearest_node->x);
+
+        //     // std::cout << "Straight" << std::endl;
+        //     return steered_node;
+        // }
 
         if(euclidean_distance(steered_node_1,rand_node) < euclidean_distance(steered_node_2,rand_node))
         {
@@ -483,17 +528,18 @@ public:
             steered_node->y = steered_node_2->y;
         }
 
-        double delta_theta = math_util::AngleDiff(  atan2(nearest_node->y - center_node->y, nearest_node->x - center_node->x),
-                                                    atan2(steered_node->y - center_node->y, steered_node->x - center_node->x));
+        double delta_theta = math_util::AngleDist(math_util::AngleDiff( atan2(nearest_node->y - center_node->y, nearest_node->x - center_node->x),
+                                                                        atan2(steered_node->y - center_node->y, steered_node->x - center_node->x)),
+                                                  0.0);
 
-        if(delta_theta > 0)
+        if(delta_theta < 0)
         {
-            steered_node->orientation = nearest_node->orientation + abs(delta_theta);
+            steered_node->orientation = math_util::AngleDiff(nearest_node->orientation + abs(delta_theta), 0.0);
             steered_node->direction = 1;
         }
         else
         {
-            steered_node->orientation = nearest_node->orientation - abs(delta_theta);
+            steered_node->orientation = math_util::AngleDiff(nearest_node->orientation - abs(delta_theta), 0.0);
             steered_node->direction = -1;
         }
         
@@ -501,7 +547,7 @@ public:
         steered_node->yc = center_node->y;
         steered_node->rho = rho;
 
-        if((steered_node->x > 0) && (steered_node->y > 0) && (steered_node->x < width) && (steered_node->y < height) && (rho < 300000))
+        if((steered_node->x > 0) && (steered_node->y > 0) && (steered_node->x < width) && (steered_node->y < height) && (rho < 300002))
         {
             cv::Point center_point(center_node->x,center_node->y);
             cv::Size xy(rho,rho);
@@ -537,6 +583,16 @@ public:
             std::cout << "Rho : " << rho << std::endl << std::endl;
             return dummy;
         }
+
+        std::cout << "----- Accepted Node Info -----" << std::endl;
+        std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
+        std::cout << "tan(orientation) : " << tan(rand_node->orientation) << std::endl;
+        std::cout << "theta(rand,center) : " << atan2(rand_node->y - center_node->y, rand_node->x - center_node->x) * 180/PI << std::endl;
+        std::cout << "theta(steered,center) : " << atan2(steered_node->y - center_node->y, steered_node->x - center_node->x) * 180/PI << std::endl;
+        std::cout << "Nearest node : (" << nearest_node->x << " , " << nearest_node->y << " , " << nearest_node->orientation << ")" << std::endl;
+        std::cout << "Center node : (" << center_node->x << " , " << center_node->y << ")" << std::endl;
+        std::cout << "Steered node : (" << steered_node->x << " , " << steered_node->y << " , " << steered_node->orientation << ")" << std::endl;
+        std::cout << "Rho : " << rho << std::endl << std::endl;
 
         return steered_node;
     }
@@ -890,7 +946,7 @@ int main(int argc, char **argv)
         random_obstacles[i][3] = dist_dim_2(mt);
     }
 
-    struct Node* start = new Node(140,40);
+    struct Node* start = new Node(40,40);
     start->cost = 0.0;
     start->orientation = initial_orientation;
     struct Node* goal = new Node(720,720);
@@ -907,7 +963,7 @@ int main(int argc, char **argv)
 
     int count = -1;
     
-    while(map.euclidean_distance(steered_node_global,goal) > distance_from_goal)
+    while(1)
     {
         ++count;
 
@@ -932,15 +988,13 @@ int main(int argc, char **argv)
         // find nearest node in existing tree
         nearest_node = map.find_nearest(rand_node);
 
+        rho_min = map.euclidean_distance(rand_node,nearest_node);
+
         // needed to reject huge arcs
         double direct_distance = map.arc_distance(nearest_node, rand_node);
 
         // if(direct_distance > step_size)
         // {
-            // cv::circle(map.world, cv::Point(rand_node->x, rand_node->y), 2, cv::Scalar(0,0,255), 1);
-            // cv::Point point_1 = cv::Point(rand_node->x,rand_node->y);
-            // cv::Point point_2 = cv::Point(rand_node->x + 10 * cos(rand_node->orientation),rand_node->y - 10 * sin(rand_node->orientation));
-            // cv::arrowedLine(map.world, point_1, point_2, cv::Scalar(0,0,255), 2, cv::LINE_8);
             // continue;
         // }
 
@@ -978,12 +1032,8 @@ int main(int argc, char **argv)
             continue;
         }
 
+        // map.display_node(rand_node,1);
         map.display_node(steered_node,1);
-
-        // cv::circle(map.world, cv::Point(rand_node->x, rand_node->y), 2, cv::Scalar(0,255,0), 1);
-        // cv::Point point_1 = cv::Point(rand_node->x,rand_node->y);
-        // cv::Point point_2 = cv::Point(rand_node->x + 10 * cos(rand_node->orientation),rand_node->y - 10 * sin(rand_node->orientation));
-        // cv::arrowedLine(map.world, point_1, point_2, cv::Scalar(0,255,0), 2, cv::LINE_8);
         
         //needs to be written correctly
         // if(map.obstacle_in_path(nearest_node,steered_node))
@@ -1009,12 +1059,12 @@ int main(int argc, char **argv)
         cv::waitKey(2);
     }
 
-    cv::waitKey(0);
+    // cv::waitKey(0);
     map.goal->parent = steered_node_global;
     map.goal->cost = map.set_goal_cost();
     map.goal->direction = steered_node_global->direction;
     map.set_node_costs(initial_orientation);
-    map.nodes.push_back(map.goal);
+    // map.nodes.push_back(map.goal);
 
     cv::Point point_1 = cv::Point(steered_node_global->x,steered_node_global->y);
     cv::Point point_2 = cv::Point(nearest_node->x,nearest_node->y);
