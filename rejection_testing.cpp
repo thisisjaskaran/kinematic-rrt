@@ -202,8 +202,8 @@ struct CostFunctor
         residual[1] = (d - rho[0]) * sin(theta);
         residual[2] = gamma * del_theta + pow(rho[0],0);
         
-        std::cout << "d : " << d << std::endl;
-        std::cout << "rho[0] : " << rho[0] << std::endl << std::endl;
+        // std::cout << "d : " << d << std::endl;
+        // std::cout << "rho[0] : " << rho[0] << std::endl << std::endl;
 
         return true;
     }
@@ -547,7 +547,7 @@ public:
         steered_node->yc = center_node->y;
         steered_node->rho = rho;
 
-        if((steered_node->x > 0) && (steered_node->y > 0) && (steered_node->x < width) && (steered_node->y < height) && (rho < 300002))
+        if((steered_node->x >= 0) && (steered_node->y >= 0) && (steered_node->x < width) && (steered_node->y < height) && (rho < 300002))
         {
             cv::Point center_point(center_node->x,center_node->y);
             cv::Size xy(rho,rho);
@@ -584,15 +584,15 @@ public:
             return dummy;
         }
 
-        std::cout << "----- Accepted Node Info -----" << std::endl;
-        std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
-        std::cout << "tan(orientation) : " << tan(rand_node->orientation) << std::endl;
-        std::cout << "theta(rand,center) : " << atan2(rand_node->y - center_node->y, rand_node->x - center_node->x) * 180/PI << std::endl;
-        std::cout << "theta(steered,center) : " << atan2(steered_node->y - center_node->y, steered_node->x - center_node->x) * 180/PI << std::endl;
-        std::cout << "Nearest node : (" << nearest_node->x << " , " << nearest_node->y << " , " << nearest_node->orientation << ")" << std::endl;
-        std::cout << "Center node : (" << center_node->x << " , " << center_node->y << ")" << std::endl;
-        std::cout << "Steered node : (" << steered_node->x << " , " << steered_node->y << " , " << steered_node->orientation << ")" << std::endl;
-        std::cout << "Rho : " << rho << std::endl << std::endl;
+        // std::cout << "----- Accepted Node Info -----" << std::endl;
+        // std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
+        // std::cout << "tan(orientation) : " << tan(rand_node->orientation) << std::endl;
+        // std::cout << "theta(rand,center) : " << atan2(rand_node->y - center_node->y, rand_node->x - center_node->x) * 180/PI << std::endl;
+        // std::cout << "theta(steered,center) : " << atan2(steered_node->y - center_node->y, steered_node->x - center_node->x) * 180/PI << std::endl;
+        // std::cout << "Nearest node : (" << nearest_node->x << " , " << nearest_node->y << " , " << nearest_node->orientation << ")" << std::endl;
+        // std::cout << "Center node : (" << center_node->x << " , " << center_node->y << ")" << std::endl;
+        // std::cout << "Steered node : (" << steered_node->x << " , " << steered_node->y << " , " << steered_node->orientation << ")" << std::endl;
+        // std::cout << "Rho : " << rho << std::endl << std::endl;
 
         return steered_node;
     }
