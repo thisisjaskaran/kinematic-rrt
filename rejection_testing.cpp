@@ -159,6 +159,7 @@ struct CostFunctor
         {
             if(value_obtained_alpha > 0)
             {
+                // std::cout << "picking alpha" << std::endl;
                 center_x = (xc_alpha);
                 center_y = (yc_alpha);
             }
@@ -172,6 +173,7 @@ struct CostFunctor
         {
             if(value_obtained_alpha < 0)
             {
+                // std::cout << "picking alpha" << std::endl;
                 center_x = (xc_alpha);
                 center_y = (yc_alpha);
             }
@@ -290,8 +292,8 @@ public:
             sample->y = goal->y;
         }
 
-        // sample->x = 40;
-        // sample->y = 760;
+        // sample->x = 760;
+        // sample->y = 40;
         // sample->orientation = -acos(0.0);
         // sample_number += 10;
 
@@ -528,11 +530,13 @@ public:
             steered_node->y = steered_node_2->y;
         }
 
-        double delta_theta = math_util::AngleDist(math_util::AngleDiff( atan2(nearest_node->y - center_node->y, nearest_node->x - center_node->x),
+        double delta_theta = math_util::AngleDiff(math_util::AngleDiff( atan2(nearest_node->y - center_node->y, nearest_node->x - center_node->x),
                                                                         atan2(steered_node->y - center_node->y, steered_node->x - center_node->x)),
                                                   0.0);
+        
+        std::cout << "delta_theta : " << delta_theta << std::endl;
 
-        if(delta_theta < 0)
+        if(delta_theta > 0)
         {
             steered_node->orientation = math_util::AngleDiff(nearest_node->orientation + abs(delta_theta), 0.0);
             steered_node->direction = 1;
@@ -584,15 +588,15 @@ public:
             return dummy;
         }
 
-        // std::cout << "----- Accepted Node Info -----" << std::endl;
-        // std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
-        // std::cout << "tan(orientation) : " << tan(rand_node->orientation) << std::endl;
-        // std::cout << "theta(rand,center) : " << atan2(rand_node->y - center_node->y, rand_node->x - center_node->x) * 180/PI << std::endl;
-        // std::cout << "theta(steered,center) : " << atan2(steered_node->y - center_node->y, steered_node->x - center_node->x) * 180/PI << std::endl;
-        // std::cout << "Nearest node : (" << nearest_node->x << " , " << nearest_node->y << " , " << nearest_node->orientation << ")" << std::endl;
-        // std::cout << "Center node : (" << center_node->x << " , " << center_node->y << ")" << std::endl;
-        // std::cout << "Steered node : (" << steered_node->x << " , " << steered_node->y << " , " << steered_node->orientation << ")" << std::endl;
-        // std::cout << "Rho : " << rho << std::endl << std::endl;
+        std::cout << "----- Accepted Node Info -----" << std::endl;
+        std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
+        std::cout << "tan(orientation) : " << tan(rand_node->orientation) << std::endl;
+        std::cout << "theta(rand,center) : " << atan2(rand_node->y - center_node->y, rand_node->x - center_node->x) * 180/PI << std::endl;
+        std::cout << "theta(steered,center) : " << atan2(steered_node->y - center_node->y, steered_node->x - center_node->x) * 180/PI << std::endl;
+        std::cout << "Nearest node : (" << nearest_node->x << " , " << nearest_node->y << " , " << nearest_node->orientation << ")" << std::endl;
+        std::cout << "Center node : (" << center_node->x << " , " << center_node->y << ")" << std::endl;
+        std::cout << "Steered node : (" << steered_node->x << " , " << steered_node->y << " , " << steered_node->orientation << ")" << std::endl;
+        std::cout << "Rho : " << rho << std::endl << std::endl;
 
         return steered_node;
     }
@@ -946,7 +950,7 @@ int main(int argc, char **argv)
         random_obstacles[i][3] = dist_dim_2(mt);
     }
 
-    struct Node* start = new Node(40,40);
+    struct Node* start = new Node(400,400);
     start->cost = 0.0;
     start->orientation = initial_orientation;
     struct Node* goal = new Node(720,720);
