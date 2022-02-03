@@ -15,7 +15,7 @@
 
 #include "../shared/math/math_util.h"
 
-#define PI 2*acos(0.0)
+#define PI double(2*acos(0.0))
 
 using ceres::AutoDiffCostFunction;
 using ceres::CostFunction;
@@ -133,8 +133,8 @@ public:
             sample->y = goal->y;
         }
 
-        // sample->x = 200;
-        // sample->y = 200;
+        // sample->x = 700;
+        // sample->y = 300;
         // sample->orientation = -acos(0.0);
         // sample_number += 10;
 
@@ -224,20 +224,6 @@ public:
         }
         return nearest_node;
     }
-    void display_arc(struct Node* node_1, struct Node* node_2, int xc, int yc, double rho, int final = 0)
-    {
-        long long int x1 = node_1->x;
-        long long int y1 = node_1->y;
-        long long int x2 = node_2->x;
-        long long int y2 = node_2->y;
-        double theta_1 = node_1->orientation;
-        double theta_2 = node_2->orientation;
-        
-        if(final == 0)
-            cv::circle(world,cv::Point(xc,yc),rho,(100,100,100),1);
-        else
-            cv::circle(world,cv::Point(xc,yc),rho,(0,0,255),1);
-    }
     bool isValid(long long int x, long int y)
     {
         if(x < 0)
@@ -251,9 +237,41 @@ public:
         else
             return true;
     }
+    void draw_arc(struct Node* nearest_node, struct Node* steered_final, int direction, double rho_final)
+    {
+        cv::Point center_point(steered_final->xc,steered_final->yc);
+        cv::Size xy(rho_final,rho_final);
+        int angle = 0;
+        int thickness = 1;
+
+        double theta_1 = (atan2(nearest_node->y - steered_final->yc, nearest_node->x - steered_final->xc) * 180.0) / PI;
+        double theta_2 = (atan2(steered_final->y - steered_final->yc, steered_final->x - steered_final->xc) * 180.0) / PI;
+
+        int starting_point = 0, ending_point = 0;
+
+        if(direction == 1)
+        {
+            // std::cout << "in if" << std::endl;
+            starting_point = round(theta_1);
+            ending_point = round(theta_2);
+
+            if(starting_point > ending_point)
+                starting_point -= 360.0;
+        }
+        else
+        {
+            // std::cout << "in else" << std::endl;
+            starting_point = round(theta_1);
+            ending_point = round(theta_2);
+
+            if(starting_point < ending_point)
+                ending_point -= 360.0;
+        }
+
+        cv::ellipse(world, center_point, xy, angle, starting_point, ending_point, (0,0,0),thickness);
+    }
     struct Node* steer(struct Node* rand_node, struct Node* nearest_node, double rho_min, double resolution = 20.0)
     {
-        // use obtained rho and existing rand_node and nearest_node to find steered_node
         long long int x1 = (nearest_node->x);
         long long int y1 = (height - nearest_node->y);
         long long int x2 = (rand_node->x);
@@ -282,9 +300,12 @@ public:
         double center_x, center_y;
         double error = 0.0;
 
+        int xc_opt, yc_opt;
+
+        int direction = 0;
+
         for(double rho_iter = 300000.0; rho_iter >= rho_min; rho_iter -= resolution)
         {
-            // preprocess using rho, rand_node and nearest_node to find del_x, del_y and del_theta
             xc_alpha = (x1 + rho_iter * sin(theta_1));
             yc_alpha = (y1 - rho_iter * cos(theta_1));
 
@@ -378,6 +399,20 @@ public:
                 steered_final->xc = center_node->x;
                 steered_final->yc = center_node->y;
                 steered_final->rho = rho_iter;
+
+                if(center_node->x == round(xc_alpha)) // alpha is clockwise
+                {
+                    steered_final->direction = 1;
+                    direction = 1;
+                }
+                else // beta is anticlockwise
+                {
+                    steered_final->direction = -1;
+                    direction = -1;
+                }
+                
+                xc_opt = center_node->x;
+                yc_opt = center_node->y;
             }
 
             delete center_node;
@@ -386,8 +421,20 @@ public:
             delete steered_node;
         }
 
-        if((steered_final->x >= 0) && (steered_final->y >= 0) && (steered_final->x < width) && (steered_final->y < height) && (rho_final < 300002))
+        if((steered_final->x >= 0) && (steered_final->y >= 0) && (steered_final->x < width) && (steered_final->y < height))
         {
+            draw_arc(nearest_node,steered_final,steered_final->direction,rho_final);
+ 
+            // std::cout << "----- Accepted Node Info -----" << std::endl;
+            // std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
+            // std::cout << "tan(orientation) : " << tan(rand_node->orientation) << std::endl;
+            // std::cout << "theta(rand,center) : " << atan2(rand_node->y - steered_final->yc, rand_node->x - steered_final->xc) * 180/PI << std::endl;
+            // std::cout << "theta(steered,center) : " << atan2(steered_final->y - steered_final->yc, steered_final->x - steered_final->xc) * 180/PI << std::endl;
+            // std::cout << "Nearest node : (" << nearest_node->x << " , " << nearest_node->y << " , " << nearest_node->orientation << ")" << std::endl;
+            // std::cout << "Center node : (" << steered_final->xc << " , " << steered_final->yc << ")" << std::endl;
+            // std::cout << "Steered node : (" << steered_final->x << " , " << steered_final->y << " , " << steered_final->orientation << ")" << std::endl;
+            // std::cout << "theta_1 : " << theta_1 << ", theta_2 : " << theta_2 << std::endl;
+            // std::cout << "Rho : " << rho_final << std::endl << std::endl;
             return steered_final;
         }
         else
@@ -461,6 +508,8 @@ public:
             cv::Point point_2 = cv::Point(nodes[i]->parent->x,nodes[i]->parent->y);
 
             // cv::line(world, point_1, point_2, cv::Scalar(0,255,0), 1, cv::LINE_8);
+
+            draw_arc(nodes[i], nodes[i]->parent, nodes[i]->direction, nodes[i]->rho);
 
             point_1 = cv::Point(nodes[i]->x,nodes[i]->y);
             point_2 = cv::Point(nodes[i]->x + 10 * cos(nodes[i]->orientation),nodes[i]->y - 10 * sin(nodes[i]->orientation));
@@ -726,7 +775,7 @@ int main(int argc, char **argv)
     double search_radius = 50.0;
     double distance_from_goal = 30.0;
     double rho_min = 100.0;
-    double resolution = 100.0; // 300,000 to rho_min
+    double resolution = 10.0; // 300,000 to rho_min
     double initial_orientation = -1 * 3.1415 / 4;
 
     int random_obstacles[num_random_obstacles][4];
@@ -746,7 +795,7 @@ int main(int argc, char **argv)
         random_obstacles[i][3] = dist_dim_2(mt);
     }
 
-    struct Node* start = new Node(40,40);
+    struct Node* start = new Node(400,400);
     start->cost = 0.0;
     start->orientation = initial_orientation;
     struct Node* goal = new Node(720,720);
@@ -814,14 +863,14 @@ int main(int argc, char **argv)
             continue;
         }
 
-        if(map.is_obstacle(steered_node))
-        {
-            map.display_node(rand_node);
-            continue;
-        }
+        // if(map.is_obstacle(steered_node))
+        // {
+        //     map.display_node(rand_node);
+        //     continue;
+        // }
 
         // map.display_node(rand_node,1);
-        map.display_node(steered_node,1);
+        // map.display_node(steered_node,1);
         
         //needs to be written correctly
         // if(map.obstacle_in_path(nearest_node,steered_node))
