@@ -91,6 +91,34 @@ public:
 
         nodes.push_back(start);
     }
+    double arc_length(struct Node* nearest_node, struct Node* steered_final, int direction, double rho_final)
+    {
+        double theta_1 = (atan2(nearest_node->y - steered_final->yc, nearest_node->x - steered_final->xc) * 180.0) / PI;
+        double theta_2 = (atan2(steered_final->y - steered_final->yc, steered_final->x - steered_final->xc) * 180.0) / PI;
+
+        int starting_point = 0, ending_point = 0;
+
+        if(direction == 1)
+        {
+            starting_point = round(theta_1);
+            ending_point = round(theta_2);
+
+            if(starting_point > ending_point)
+                starting_point -= 360.0;
+        }
+        else
+        {
+            starting_point = round(theta_1);
+            ending_point = round(theta_2);
+
+            if(starting_point < ending_point)
+                ending_point -= 360.0;
+        }
+
+        int delta_theta = abs(starting_point - ending_point);
+
+        return (delta_theta * rho_final * PI / 180.0);
+    }
     double euclidean_distance(struct Node* node_1, struct Node* node_2)
     {
         double distance = pow(pow(node_1->x - node_2->x,2) + pow(node_1->y - node_2->y,2),0.5);
@@ -224,7 +252,7 @@ public:
         }
         return nearest_node;
     }
-    bool isValid(long long int x, long int y)
+    bool isValid(long long int x, long long int y)
     {
         if(x < 0)
             return false;
@@ -237,7 +265,7 @@ public:
         else
             return true;
     }
-    void draw_arc(struct Node* nearest_node, struct Node* steered_final, int direction, double rho_final)
+    void draw_arc(struct Node* nearest_node, struct Node* steered_final, int direction, double rho_final, int final=0)
     {
         cv::Point center_point(steered_final->xc,steered_final->yc);
         cv::Size xy(rho_final,rho_final);
@@ -251,7 +279,6 @@ public:
 
         if(direction == 1)
         {
-            // std::cout << "in if" << std::endl;
             starting_point = round(theta_1);
             ending_point = round(theta_2);
 
@@ -260,7 +287,6 @@ public:
         }
         else
         {
-            // std::cout << "in else" << std::endl;
             starting_point = round(theta_1);
             ending_point = round(theta_2);
 
@@ -268,7 +294,14 @@ public:
                 ending_point -= 360.0;
         }
 
-        cv::ellipse(world, center_point, xy, angle, starting_point, ending_point, (0,0,0),thickness);
+        // std::cout << "direction : " << direction << ", starting point : " << starting_point << ", ending point : " << ending_point << std::endl; 
+
+        if(!final)
+            cv::ellipse(world, center_point, xy, angle, starting_point, ending_point, (0,0,0),thickness);
+        else
+            cv::ellipse(world, center_point, xy, angle, starting_point, ending_point, (0,0,255),thickness);
+        if(rho_final > 3000.0)
+            cv::line(world, cv::Point(nearest_node->x,nearest_node->y), cv::Point(steered_final->x,steered_final->y), cv::Scalar(0,0,0), 1, cv::LINE_8);
     }
     struct Node* steer(struct Node* rand_node, struct Node* nearest_node, double rho_min, double resolution = 20.0)
     {
@@ -301,8 +334,6 @@ public:
         double error = 0.0;
 
         int xc_opt, yc_opt;
-
-        int direction = 0;
 
         for(double rho_iter = 300000.0; rho_iter >= rho_min; rho_iter -= resolution)
         {
@@ -403,12 +434,10 @@ public:
                 if(center_node->x == round(xc_alpha)) // alpha is clockwise
                 {
                     steered_final->direction = 1;
-                    direction = 1;
                 }
                 else // beta is anticlockwise
                 {
                     steered_final->direction = -1;
-                    direction = -1;
                 }
                 
                 xc_opt = center_node->x;
@@ -423,7 +452,7 @@ public:
 
         if((steered_final->x >= 0) && (steered_final->y >= 0) && (steered_final->x < width) && (steered_final->y < height))
         {
-            draw_arc(nearest_node,steered_final,steered_final->direction,rho_final);
+            // draw_arc(nearest_node,steered_final,steered_final->direction,rho_final);
  
             // std::cout << "----- Accepted Node Info -----" << std::endl;
             // std::cout << "Sampled node : (" << rand_node->x << " , " << rand_node->y << " , " << rand_node->orientation << ")" << std::endl;
@@ -453,21 +482,64 @@ public:
         //     return false;
         // return true;
     }
-    // work here
-    bool obstacle_in_path(struct Node* node_1, struct Node* node_2)
+    bool obstacle_in_path(struct Node* nearest_node, struct Node* steered_final, int direction, double rho_final)
     {
-        int resolution = int(50);
+        cv::Point center_point(steered_final->xc,steered_final->yc);
+        cv::Size xy(rho_final,rho_final);
+        int angle = 0;
+        int thickness = 1;
+        
+        double theta_1 = (atan2(nearest_node->y - steered_final->yc, nearest_node->x - steered_final->xc) * 180.0) / PI;
+        double theta_2 = (atan2(steered_final->y - steered_final->yc, steered_final->x - steered_final->xc) * 180.0) / PI;
 
-        // #pragma omp parallel for
-        for(int i = 0; i <= resolution; i++)
+        int starting_point = 0, ending_point = 0;
+
+        int test_x = 0;
+        int test_y = 0;
+
+        if(direction == 1)
         {
-            int x_check = round((i * node_1->x + (resolution - i) * node_2->x)/resolution);
-            int y_check = round((i * node_1->y + (resolution - i) * node_2->y)/resolution);
+            starting_point = round(theta_1);
+            ending_point = round(theta_2);
 
-            if( world.at<cv::Vec3b>(y_check,x_check)[0] != 255 &&
-                world.at<cv::Vec3b>(y_check,x_check)[1] != 255 &&
-                world.at<cv::Vec3b>(y_check,x_check)[2] != 255)
-                return true;
+            if(starting_point > ending_point)
+                starting_point -= 360.0;
+            
+            for(int theta = starting_point; theta < ending_point; theta++)
+            {
+                test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
+                test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
+
+                if(!isValid(test_x,test_y))
+                    return true;
+
+                if( world.at<cv::Vec3b>(test_y,test_x)[0] != 255 &&
+                    world.at<cv::Vec3b>(test_y,test_x)[1] != 255 &&
+                    world.at<cv::Vec3b>(test_y,test_x)[2] != 255)
+                    return true;
+            }
+        }
+        else
+        {
+            starting_point = round(theta_1);
+            ending_point = round(theta_2);
+
+            if(starting_point < ending_point)
+                ending_point -= 360.0;
+            
+            for(int theta = starting_point; theta > ending_point; theta--)
+            {
+                test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
+                test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
+                
+                if(!isValid(test_x,test_y))
+                    return true;
+
+                if( world.at<cv::Vec3b>(test_y,test_x)[0] != 255 &&
+                    world.at<cv::Vec3b>(test_y,test_x)[1] != 255 &&
+                    world.at<cv::Vec3b>(test_y,test_x)[2] != 255)
+                    return true;
+            }
         }
         return false;
     }
@@ -509,7 +581,7 @@ public:
 
             // cv::line(world, point_1, point_2, cv::Scalar(0,255,0), 1, cv::LINE_8);
 
-            draw_arc(nodes[i], nodes[i]->parent, nodes[i]->direction, nodes[i]->rho);
+            draw_arc(nodes[i]->parent, nodes[i], nodes[i]->direction, nodes[i]->rho);
 
             point_1 = cv::Point(nodes[i]->x,nodes[i]->y);
             point_2 = cv::Point(nodes[i]->x + 10 * cos(nodes[i]->orientation),nodes[i]->y - 10 * sin(nodes[i]->orientation));
@@ -524,96 +596,22 @@ public:
     void display_final_path()
     {
         struct Node* curr_node = goal;
-        int final = 0;
-
-        int alternate = 0;
 
         while(curr_node->parent->parent != NULL)
         {
-            cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
-            cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
-            cv::line(world, point_1, point_2, cv::Scalar(0,0,255), 2, cv::LINE_8); 
-            cv::circle(world, cv::Point(curr_node->parent->xc, curr_node->parent->yc), 2, cv::Scalar(0,0,255), 1);
+            draw_arc(curr_node->parent,curr_node,curr_node->direction,curr_node->rho,1);
 
-            point_1 = cv::Point(curr_node->x,curr_node->y);
-            point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
+            cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
+            cv::Point point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
             cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
 
-            // double delta_theta = math_util::AngleDiff(  atan2(curr_node->parent->y - curr_node->yc, curr_node->parent->x - curr_node->xc),
-            //                                             atan2(curr_node->y - curr_node->yc, curr_node->x - curr_node->xc));
-
-            // starting_point = round(angle_from_center(curr_node,curr_node));
-            // ending_point = round(angle_from_center(curr_node->parent,curr_node));
-
-            // if(starting_point < 0)
-            //     starting_point += 360;
-            // if(ending_point < 0)
-            //     ending_point += 360;
-
-            // double delta_theta = math_util::AngleDiff(ending_point,starting_point);
-            // double delta_orientation = math_util::AngleDiff(curr_node->parent->orientation,curr_node->orientation) * (180.0/3.141592653589793238463);
-
-            // std::cout << "Curr node : " << curr_node->x << "," << curr_node->y << "\n";
-            // std::cout << "Center node : " << curr_node->xc << "," << curr_node->yc << "\n";
-            // std::cout << "Starting point : " << starting_point << "\n";
-            // std::cout << "Ending point : " << ending_point << "\n";
-            // std::cout << "delta_theta : " << delta_theta << "\n";
-            // std::cout << "delta_orientation : " << delta_orientation << "\n";
-            // std::cout << "Angle from center : " << angle_from_center(curr_node,curr_node) << "\n\n";
-
-            // if(curr_node->direction > 0)
-            //     cv::ellipse(world, cv::Point(curr_node->xc, curr_node->yc), cv::Size(curr_node->rho,curr_node->rho), 0, starting_point, ending_point, cv::Scalar(0,0,255), 1);
-            // else
-            //     cv::ellipse(world, cv::Point(curr_node->xc, curr_node->yc), cv::Size(curr_node->rho,curr_node->rho), 0, ending_point, starting_point, cv::Scalar(0,0,255), 1);
-
             curr_node = curr_node->parent;
-
-            ++alternate;
-
-            // cv::waitKey(0);
-            // cv::imshow("Output Window",world);
         }
+        draw_arc(curr_node->parent,curr_node,curr_node->direction,curr_node->rho,1);
+
         cv::Point point_1 = cv::Point(curr_node->x,curr_node->y);
-        cv::Point point_2 = cv::Point(curr_node->parent->x,curr_node->parent->y);
-        cv::line(world, point_1, point_2, cv::Scalar(0,0,255), 2, cv::LINE_8); 
-
-        point_1 = cv::Point(curr_node->x,curr_node->y);
-        point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
+        cv::Point point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
         cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
-
-        // starting_point = round(angle_from_center(curr_node,curr_node));
-        // ending_point = round(angle_from_center(curr_node->parent,curr_node));
-
-        // if(starting_point < 0)
-        //     starting_point += 360;
-        // if(ending_point < 0)
-        //     ending_point += 360;
-
-        // double delta_theta = math_util::AngleDiff(ending_point,starting_point);
-        // double delta_orientation = math_util::AngleDiff(curr_node->parent->orientation,curr_node->orientation) * (180.0/3.141592653589793238463);
-
-        // std::cout << "Curr node : " << curr_node->x << "," << curr_node->y << "\n";
-        // std::cout << "Center node : " << curr_node->xc << "," << curr_node->yc << "\n";
-        // std::cout << "Starting point : " << starting_point << "\n";
-        // std::cout << "Ending point : " << ending_point << "\n";
-        // std::cout << "delta_theta : " << delta_theta << "\n";
-        // std::cout << "delta_orientation : " << delta_orientation << "\n";
-        // std::cout << "Angle from center : " << angle_from_center(curr_node,curr_node) << "\n\n";
-
-        // if(curr_node->direction > 0)
-        //     cv::ellipse(world, cv::Point(curr_node->xc, curr_node->yc), cv::Size(curr_node->rho,curr_node->rho), 0, starting_point, ending_point, cv::Scalar(0,0,255), 1);
-        // else
-        //     cv::ellipse(world, cv::Point(curr_node->xc, curr_node->yc), cv::Size(curr_node->rho,curr_node->rho), 0, ending_point, starting_point, cv::Scalar(0,0,255), 1);
-
-        cv::Point center((start->x + goal->x) / 2, (start->y + goal->y) / 2);
-        cv::Size xy(major_axis, minor_axis);
-        int angle = atan2(goal->y - start->y, goal->x - start->x) * 180.0 / (2 * acos(0.0));
-        starting_point = 0;
-        ending_point = 360;
-        cv::Scalar line_Color(128, 128, 128);
-        int thickness = 1;
-
-        cv::ellipse(world, center, xy, angle, starting_point, ending_point, line_Color,thickness);
 
         cv::imshow("Output Window",world);
         cv::waitKey(0);
@@ -634,7 +632,7 @@ public:
             if(nodes[i] == node->parent)
                 continue;
             
-            if(obstacle_in_path(nodes[i],node))
+            if(obstacle_in_path(nodes[i],node,node->direction,node->rho))
                 continue;
 
             if(euclidean_distance(node,nodes[i]) < search_radius)
@@ -660,7 +658,7 @@ public:
         set_obstacles(random_obstacles);
         for(int i = 0; i < neighbours.size(); i++)
         {
-            if(obstacle_in_path(node,neighbours[i]))
+            if(obstacle_in_path(node,neighbours[i],neighbours[i]->direction,neighbours[i]->rho))
                 continue;
             if(!check_kino(node,neighbours[i],rho_min))
                 continue;
@@ -720,7 +718,7 @@ public:
 
         for(int i = 1; i < nodes.size(); i++)
         {
-            nodes[i]->cost = nodes[i]->parent->cost + arc_distance(nodes[i],nodes[i]->parent);
+            nodes[i]->cost = nodes[i]->parent->cost + arc_length(nodes[i],nodes[i]->parent,nodes[i]->parent->direction,nodes[i]->parent->rho);
         }
     }
     void set_random_obstacles(int random_obstacles[][4])
@@ -773,6 +771,7 @@ int main(int argc, char **argv)
 
     double step_size = 30.0;
     double search_radius = 50.0;
+    double max_arc_length = 200.0;
     double distance_from_goal = 30.0;
     double rho_min = 100.0;
     double resolution = 10.0; // 300,000 to rho_min
@@ -795,7 +794,7 @@ int main(int argc, char **argv)
         random_obstacles[i][3] = dist_dim_2(mt);
     }
 
-    struct Node* start = new Node(400,400);
+    struct Node* start = new Node(40,40);
     start->cost = 0.0;
     start->orientation = initial_orientation;
     struct Node* goal = new Node(720,720);
@@ -812,25 +811,26 @@ int main(int argc, char **argv)
 
     int count = -1;
     
-    while(1)
+    while(map.euclidean_distance(steered_node_global,goal) > distance_from_goal)
     {
         // sample a node
         rand_node = map.sample();
 
         if(!map.isValid(rand_node->x,rand_node->y))
         {
-            map.display_node(rand_node);
+            // map.display_node(rand_node);
             continue;
         }
 
         if(rand_node->x == start->x && rand_node->y == start->y)
         {
-            map.display_node(rand_node);
+            // map.display_node(rand_node);
             continue;
         }
 
         // find nearest node in existing tree
         nearest_node = map.find_nearest(rand_node);
+        // nearest_node = map.start;
 
         // needed to reject huge arcs
         double direct_distance = map.arc_distance(nearest_node, rand_node);
@@ -853,13 +853,20 @@ int main(int argc, char **argv)
 
         if(steered_node->x == -1)
         {
-            map.display_node(rand_node,2);
+            // map.display_node(rand_node,2);
             continue;
         }
 
         if(!map.isValid(steered_node->x,steered_node->y))
         {
-            map.display_node(rand_node);
+            // map.display_node(rand_node);
+            continue;
+        }
+
+        if(map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho) > max_arc_length)
+        {
+            // std::cout << "continuing : " << map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho) << std::endl;
+            // map.display_node(rand_node);
             continue;
         }
 
@@ -873,16 +880,16 @@ int main(int argc, char **argv)
         // map.display_node(steered_node,1);
         
         //needs to be written correctly
-        // if(map.obstacle_in_path(nearest_node,steered_node))
+        // if(map.obstacle_in_path(nearest_node,steered_node,steered_node->direction,steered_node->rho))
         //     continue;
 
         steered_node->parent = nearest_node;
-        steered_node->cost = nearest_node->cost + map.arc_distance(nearest_node,steered_node);
+        steered_node->cost = nearest_node->cost + map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho);
         map.set_node_costs(initial_orientation);
         
         steered_node_global = steered_node;
         
-        // map.nodes.push_back(steered_node);
+        map.nodes.push_back(steered_node);
 
         std::vector<struct Node*> neighbours = map.find_neighbours(steered_node);
 
@@ -895,6 +902,8 @@ int main(int argc, char **argv)
 
         cv::waitKey(2);
     }
+
+    std::cout << " >>> Goal found" << std::endl;
 
     cv::waitKey(0);
     map.goal->parent = steered_node_global;
@@ -942,7 +951,7 @@ int main(int argc, char **argv)
         if(map.is_obstacle(steered_node))
             continue;
         
-        if(map.obstacle_in_path(nearest_node,steered_node))
+        if(map.obstacle_in_path(nearest_node,steered_node,steered_node->direction,steered_node->rho))
             continue;
 
         steered_node->parent = nearest_node;
