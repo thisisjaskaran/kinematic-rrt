@@ -151,10 +151,6 @@ public:
         sample->y = dist_height(mt);
         sample->orientation = dist_orientation(mt) - PI;
 
-        // std::cout << "Sample x : " << sample->x << std::endl;
-        // std::cout << "Sample y : " << sample->y << std::endl;
-        // std::cout << "Sample orientation : " << sample->orientation << std::endl;
-
         if(sample_number % 5 == 0)
         {
             sample->x = goal->x;
@@ -164,7 +160,7 @@ public:
         // sample->x = 700;
         // sample->y = 300;
         // sample->orientation = -acos(0.0);
-        // sample_number += 10;
+        sample_number += 1;
 
         return sample;
     }
@@ -505,7 +501,7 @@ public:
             if(starting_point > ending_point)
                 starting_point -= 360.0;
             
-            for(int theta = starting_point; theta < ending_point; theta++)
+            for(int theta = starting_point; theta <= ending_point; theta++)
             {
                 test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
                 test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
@@ -527,7 +523,7 @@ public:
             if(starting_point < ending_point)
                 ending_point -= 360.0;
             
-            for(int theta = starting_point; theta > ending_point; theta--)
+            for(int theta = starting_point; theta >= ending_point; theta--)
             {
                 test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
                 test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
@@ -588,10 +584,6 @@ public:
             cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8); 
         }
         cv::imshow("Output Window",world);
-    }
-    double angle_from_center(struct Node* node_to_find, struct Node* node_center)
-    {
-        return (-atan2(node_center->yc - node_to_find->y, node_to_find->x - node_center->xc) * (180.0/3.141592653589793238463));
     }
     void display_final_path()
     {
@@ -764,7 +756,7 @@ int main(int argc, char **argv)
     long long int height = 800;
     long long int width = 800;
 
-    int randomize_obstacles = 1;
+    int randomize_obstacles = 0;
     int num_random_obstacles = 0;
     int rand_obst_min_height = 8;
     int rand_obst_max_height = 17;
@@ -772,7 +764,7 @@ int main(int argc, char **argv)
     double step_size = 30.0;
     double search_radius = 50.0;
     double max_arc_length = 200.0;
-    double distance_from_goal = 30.0;
+    double distance_from_goal = 50.0;
     double rho_min = 100.0;
     double resolution = 10.0; // 300,000 to rho_min
     double initial_orientation = -1 * 3.1415 / 4;
@@ -865,23 +857,24 @@ int main(int argc, char **argv)
 
         if(map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho) > max_arc_length)
         {
-            // std::cout << "continuing : " << map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho) << std::endl;
             // map.display_node(rand_node);
             continue;
         }
 
-        // if(map.is_obstacle(steered_node))
-        // {
-        //     map.display_node(rand_node);
-        //     continue;
-        // }
+        if(euc_distance(nearest_node,steered_node) > 5 * step_size)
+            continue;
+
+        if(map.is_obstacle(steered_node))
+        {
+            // map.display_node(rand_node);
+            continue;
+        }
 
         // map.display_node(rand_node,1);
         // map.display_node(steered_node,1);
         
-        //needs to be written correctly
-        // if(map.obstacle_in_path(nearest_node,steered_node,steered_node->direction,steered_node->rho))
-        //     continue;
+        if(map.obstacle_in_path(nearest_node,steered_node,steered_node->direction,steered_node->rho))
+            continue;
 
         steered_node->parent = nearest_node;
         steered_node->cost = nearest_node->cost + map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho);
