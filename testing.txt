@@ -1,0 +1,8 @@
+[ 77%] Built target amrl_shared_lib
+[100%] Built target rrt_star
+ >>> Goal found
+[1/100]
+ >>> Goal found
+[2/100]
+ >>> Goal found
+[3/100]

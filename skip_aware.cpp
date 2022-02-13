@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdlib> 
 #include <vector>
 #include <random>
@@ -702,6 +703,10 @@ public:
     {
         struct Node* curr_node = goal;
 
+        std::ofstream fout;
+        fout.open("../output/df.txt",std::ios::out|std::ios::app);
+        fout << curr_node->x << " " << curr_node->y << " " << curr_node->orientation << "\n";
+
         while(curr_node->parent->parent != NULL)
         {
             draw_arc(curr_node->parent,curr_node,curr_node->direction,curr_node->rho,1);
@@ -711,6 +716,8 @@ public:
             cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
 
             curr_node = curr_node->parent;
+
+            fout << curr_node->x << " " << curr_node->y << " " << curr_node->orientation << "\n";
         }
         draw_arc(curr_node->parent,curr_node,curr_node->direction,curr_node->rho,1);
 
@@ -718,8 +725,15 @@ public:
         cv::Point point_2 = cv::Point(curr_node->x + 10 * cos(curr_node->orientation),curr_node->y - 10 * sin(curr_node->orientation));
         cv::arrowedLine(world, point_1, point_2, cv::Scalar(255,0,255), 2, cv::LINE_8);
 
+        curr_node = curr_node->parent;
+
+        fout << curr_node->x << " " << curr_node->y << " " << curr_node->orientation << "\n";
+
+        fout << "\n";
+        fout.close();
+
         cv::imshow("Output Window",world);
-        cv::waitKey(0);
+        // cv::waitKey(0);
     }
     void display_nodes()
     {
@@ -754,7 +768,7 @@ public:
             // add_obstacle(50,50,50,300);
             // add_obstacle(300,50,200,50);
             // add_obstacle(100,200,50,250);
-            add_obstacle(170,170,200,200);
+            add_obstacle(180,180,200,200);
         }
     }
     void rewire(struct Node* node, std::vector<struct Node*> neighbours, float rho_min, int random_obstacles[][4], float initial_orientation)
@@ -941,7 +955,7 @@ int main(int argc, char **argv)
 
         if(!map.isValid(rand_node->x,rand_node->y))
         {
-            std::cout << "!isValid" << std::endl;
+            // std::cout << "!isValid" << std::endl;
             // map.display_node(rand_node);
             ++ skip_counter;
             continue;
@@ -949,7 +963,7 @@ int main(int argc, char **argv)
 
         if(rand_node->x == start->x && rand_node->y == start->y)
         {
-            std::cout << "!isValid" << std::endl;
+            // std::cout << "!isValid" << std::endl;
             // map.display_node(rand_node);
             ++ skip_counter;
             continue;
@@ -977,7 +991,7 @@ int main(int argc, char **argv)
 
         if(steered_node->x == -1)
         {
-            std::cout << "dummy found" << std::endl;
+            // std::cout << "dummy found" << std::endl;
             // map.display_node(rand_node,2);
             ++ skip_counter;
             continue;
@@ -985,22 +999,22 @@ int main(int argc, char **argv)
 
         if(!map.isValid(steered_node->x,steered_node->y))
         {
-            std::cout << "steered not valid" << std::endl;
+            // std::cout << "steered not valid" << std::endl;
             // map.display_node(rand_node);
             ++ skip_counter;
             continue;
         }
 
-        if(map.angle_diff(nearest_node,steered_node,steered_node->direction,steered_node->rho) > 200)
+        if(map.angle_diff(nearest_node,steered_node,steered_node->direction,steered_node->rho) > 120)
         {
-            std::cout << "Angle diff too much" << std::endl;
+            // std::cout << "Angle diff too much" << std::endl;
             ++ skip_counter;
             continue;
         }
 
         if(map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho) > max_arc_length && (steered_node->rho > 5000))
         {
-            std::cout << "arc too big" << std::endl;
+            // std::cout << "arc too big" << std::endl;
             ++skip_counter;
             continue;
         }
@@ -1028,7 +1042,7 @@ int main(int argc, char **argv)
 
         if(map.is_obstacle(steered_node))
         {
-            std::cout << "steered node in obstacle" << std::endl;
+            // std::cout << "steered node in obstacle" << std::endl;
 
             // map.display_node(rand_node);
             ++ skip_counter;
@@ -1040,13 +1054,13 @@ int main(int argc, char **argv)
         
         if(map.obstacle_in_path(nearest_node,steered_node,steered_node->direction,steered_node->rho))
         {
-            std::cout << "obstacle in path" << std::endl;
+            // std::cout << "obstacle in path" << std::endl;
             ++ skip_counter;
             continue;
         }
         // std::cout << "outside clipping" << std::endl;
 
-
+        map.goal->orientation = steered_node_global->orientation;
         steered_node->parent = nearest_node;
         steered_node->cost = nearest_node->cost + map.arc_length(nearest_node,steered_node,steered_node->direction,steered_node->rho);
         map.set_node_costs(initial_orientation);
@@ -1061,17 +1075,16 @@ int main(int argc, char **argv)
 
         // map.rewire(steered_node,neighbours,rho_min, random_obstacles, initial_orientation);
 
-        cv::circle(map.world, cv::Point(start->x,start->y), 5, cv::Scalar(0,255,0), cv::FILLED, cv::LINE_8);
-        cv::circle(map.world, cv::Point(goal->x,goal->y), 5, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
+        // cv::circle(map.world, cv::Point(start->x,start->y), 5, cv::Scalar(0,255,0), cv::FILLED, cv::LINE_8);
+        // cv::circle(map.world, cv::Point(goal->x,goal->y), 5, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
 
-        map.display_map();
+        // map.display_map();
 
         cv::waitKey(2);
     }
 
     std::cout << " >>> Goal found" << std::endl;
-    
-    cv::waitKey(0);
+    // cv::waitKey(0);
     map.goal->parent = steered_node_global;
     map.goal->cost = map.set_goal_cost();
     map.goal->direction = steered_node_global->direction;
@@ -1081,7 +1094,7 @@ int main(int argc, char **argv)
     cv::Point point_1 = cv::Point(steered_node_global->x,steered_node_global->y);
     cv::Point point_2 = cv::Point(nearest_node->x,nearest_node->y);
 
-    cv::line(map.world, point_1, point_2, cv::Scalar(0,0,0), 1, cv::LINE_8); 
+    // cv::line(map.world, point_1, point_2, cv::Scalar(0,0,0), 1, cv::LINE_8); 
     
     point_1 = cv::Point(steered_node_global->x,steered_node_global->y);
     point_2 = cv::Point(goal->x,goal->y);
@@ -1090,6 +1103,14 @@ int main(int argc, char **argv)
 
     map.display_map();
     map.display_final_path();
+
+    std::cout << argv[1] << std::endl;
+    char output_map[100];
+    sprintf(output_map, "../output/map_%s.png", argv[1]);
+
+    cv::imwrite(output_map,map.world);
+
+    exit(0);
 
 
     // #pragma omp parallel for
