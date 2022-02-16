@@ -601,46 +601,64 @@ public:
         int test_x = 0;
         int test_y = 0;
 
-        // if(rho_final > 2000)
-        if(direction == 1)
+        if(rho_final < 10000)
         {
-            starting_point = round(theta_1);
-            ending_point = round(theta_2);
-
-            if(starting_point > ending_point)
-                starting_point -= 360.0;
-            
-            for(float theta = starting_point; theta <= ending_point; theta += resolution)
+            if(direction == 1)
             {
-                // std::cout << starting_point << "->" << theta << "->" << ending_point << std::endl;
-                test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
-                test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
+                starting_point = round(theta_1);
+                ending_point = round(theta_2);
 
-                if(!isValid(test_x,test_y))
-                    return true;
+                if(starting_point > ending_point)
+                    starting_point -= 360.0;
+                
+                for(float theta = starting_point; theta <= ending_point; theta += resolution)
+                {
+                    // std::cout << starting_point << "->" << theta << "->" << ending_point << std::endl;
+                    test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
+                    test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
 
-                if( world.at<cv::Vec3b>(test_y,test_x)[0] != 255 &&
-                    world.at<cv::Vec3b>(test_y,test_x)[1] != 255 &&
-                    world.at<cv::Vec3b>(test_y,test_x)[2] != 255)
-                    return true;
+                    if(!isValid(test_x,test_y))
+                        return true;
+
+                    if( world.at<cv::Vec3b>(test_y,test_x)[0] != 255 &&
+                        world.at<cv::Vec3b>(test_y,test_x)[1] != 255 &&
+                        world.at<cv::Vec3b>(test_y,test_x)[2] != 255)
+                        return true;
+                }
+            }
+            else
+            {
+                starting_point = round(theta_1);
+                ending_point = round(theta_2);
+
+                if(starting_point < ending_point)
+                    ending_point -= 360.0;
+                
+                for(float theta = starting_point; theta >= ending_point; theta -= resolution)
+                {
+                    // std::cout << starting_point << "->" << theta << "->" << ending_point << std::endl;
+                    test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
+                    test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
+                    
+                    if(!isValid(test_x,test_y))
+                        return true;
+
+                    if( world.at<cv::Vec3b>(test_y,test_x)[0] != 255 &&
+                        world.at<cv::Vec3b>(test_y,test_x)[1] != 255 &&
+                        world.at<cv::Vec3b>(test_y,test_x)[2] != 255)
+                        return true;
+                }
             }
         }
         else
         {
-            starting_point = round(theta_1);
-            ending_point = round(theta_2);
-
-            if(starting_point < ending_point)
-                ending_point -= 360.0;
-            
-            for(float theta = starting_point; theta >= ending_point; theta -= resolution)
+            for(float i = 0.0; i <= 1.0; i += resolution)
             {
-                // std::cout << starting_point << "->" << theta << "->" << ending_point << std::endl;
-                test_x = round(steered_final->xc + rho_final * cos(theta * PI / 180.0));
-                test_y = round(steered_final->yc + rho_final * sin(theta * PI / 180.0));
-                
+                test_x = round(steered_final->x * i + nearest_node->x * (1.0 - i));
+                test_y = round(steered_final->y * i + nearest_node->y * (1.0 - i));
+
                 if(!isValid(test_x,test_y))
-                    return true;
+                        return true;
 
                 if( world.at<cv::Vec3b>(test_y,test_x)[0] != 255 &&
                     world.at<cv::Vec3b>(test_y,test_x)[1] != 255 &&
@@ -914,7 +932,7 @@ int main(int argc, char **argv)
         random_obstacles[i][3] = dist_dim_2(mt);
     }
 
-    struct Node* start = new Node(40,80);
+    struct Node* start = new Node(40,40);
     start->cost = 0.0;
     start->orientation = initial_orientation;
     struct Node* goal = new Node(720,720);
@@ -1075,8 +1093,8 @@ int main(int argc, char **argv)
 
         // map.rewire(steered_node,neighbours,rho_min, random_obstacles, initial_orientation);
 
-        // cv::circle(map.world, cv::Point(start->x,start->y), 5, cv::Scalar(0,255,0), cv::FILLED, cv::LINE_8);
-        // cv::circle(map.world, cv::Point(goal->x,goal->y), 5, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
+        cv::circle(map.world, cv::Point(start->x,start->y), 5, cv::Scalar(0,255,0), cv::FILLED, cv::LINE_8);
+        cv::circle(map.world, cv::Point(goal->x,goal->y), 5, cv::Scalar(0,0,255), cv::FILLED, cv::LINE_8);
 
         // map.display_map();
 
